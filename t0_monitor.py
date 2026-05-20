@@ -50,12 +50,28 @@ STOCK_NAMES = {
     "sz300450": "先导智能", "sh601208": "东材科技", "sz300014": "亿纬锂能"
 }
 
+# T+0禁用标的（波动太小不适合做T，仅监控行情不触发信号）
+T0_DISABLED = {"sz002594"}  # 比亚迪：振幅小，低吸信号容易接飞刀
+
 # 交易成本
 COMMISSION_RATE = 0.0001    # 万一 买卖双边
 STAMP_TAX_RATE = 0.0005     # 万五 卖出单边
 ROUND_TRIP_COST = COMMISSION_RATE * 2 + STAMP_TAX_RATE  # 0.07%
 MIN_PROFIT_TARGET = 0.006   # 0.6% 净收益目标
 MIN_SPREAD = MIN_PROFIT_TARGET + ROUND_TRIP_COST  # 0.67% 最小差价
+
+# ═══════════════════════════════════════════════════
+# 日内强制闭环配置
+# ═══════════════════════════════════════════════════
+# 三个时段的信号门槛
+PHASE_NORMAL_END      = (13, 30)   # 09:30-13:30 精选模式：条件≥2
+PHASE_ACTIVE_END      = (14, 30)   # 13:30-14:30 主动寻配：条件≥1 + 优先配对未平仓
+PHASE_FORCECLOSE_END  = (14, 50)   # 14:30-14:50 强制收尾：无条件配对
+# 14:50 硬截止：所有未配对仓位按市价强制闭环
+
+# 主力净流入/流出"收窄"判断阈值
+# 改为：净流入绝对值 < 500万 **且** 相比上一期（如有）方向性改善才算收窄
+MAIN_FLOW_NARROW_THRESHOLD = 5_000_000  # 500万
 
 # ═══════════════════════════════════════════════════
 # 通知配置
@@ -158,6 +174,42 @@ def is_trading_hours():
         if start <= now <= end:
             return True
     return False
+
+def get_trading_phase():
+    """判断当前处于哪个交易阶段，返回阶段名称和信号门槛
+    
+    阶段划分：
+    - "normal":    09:30-13:30 精选模式，条件≥2
+    - "active":    13:30-14:30 主动寻配，条件≥1 + 优先配对未平仓
+    - "forceclose":14:30-14:50 强制收尾，无条件配对
+    - "hardclose": 14:50之后   硬截止，所有未配对仓位按市价强制闭环
+    - "closed":    15:00之后   收盘
+    """
+    now = datetime.now()
+    h, m = now.hour, now.minute
+    
+    # 收盘后
+    if h >= 15:
+        return "closed", 0
+    
+    # 硬截止（14:50-15:00）
+    if h == 14 and m >= 50:
+        return "hardclose", 0
+    
+    # 强制收尾（14:30-14:50）
+    if h == 14 and m >= 30:
+        return "forceclose", 0
+    
+    # 主动寻配（13:30-14:30）
+    phase_active_end_h, phase_active_end_m = PHASE_ACTIVE_END
+    if (h > 13 or (h == 13 and m >= 30)) and (h < phase_active_end_h or (h == phase_active_end_h and m < phase_active_end_m)):
+        return "active", 1
+    
+    # 精选模式（交易时段内其余时间）
+    if is_trading_hours():
+        return "normal", 2
+    
+    return "closed", 0
 
 # ═══════════════════════════════════════════════════
 # 通知系统
@@ -322,23 +374,41 @@ def parse_markdown_table(text):
 def run_cli(args):
     """执行 westock-data CLI 命令，返回解析后的字典列表"""
     cmd = ["node", CLI_PATH] + args
+    cmd_desc = " ".join(args[:3])  # 日志用简短描述
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=90)
-        if result.returncode == 0 and result.stdout.strip():
-            parsed = parse_markdown_table(result.stdout)
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=90,
+        )
+        # 防御性检查：Windows后台进程模式下stdout/stderr可能为None
+        stdout = result.stdout or ""
+        stderr = result.stderr or ""
+
+        if result.returncode == 0 and stdout.strip():
+            parsed = parse_markdown_table(stdout)
             if parsed:
                 return parsed
-            # 如果表格解析失败，返回None
+            # 表格解析失败，记录原始输出前100字符用于排查
+            log(f"  CLI解析失败({cmd_desc}): {stdout.strip()[:100]}")
             return None
         else:
-            if result.stderr:
-                log(f"  CLI错误: {result.stderr[:150]}")
+            if stderr.strip():
+                log(f"  CLI错误({cmd_desc}): {stderr.strip()[:150]}")
+            elif result.returncode != 0:
+                log(f"  CLI退出码({cmd_desc}): {result.returncode}")
             return None
     except subprocess.TimeoutExpired:
-        log(f"  CLI超时: {' '.join(args[:3])}")
+        log(f"  CLI超时: {cmd_desc}")
+        return None
+    except FileNotFoundError:
+        log(f"  CLI未找到: node命令不可用，请检查PATH")
         return None
     except Exception as e:
-        log(f"  CLI异常: {e}")
+        log(f"  CLI异常({cmd_desc}): {type(e).__name__}: {e}")
         return None
 
 # ═══════════════════════════════════════════════════
@@ -401,7 +471,7 @@ def check_low_signal(quote, tech, fund):
     conditions = 0
     details = []
 
-    # 条件1: RSI6 < 35 或 RSI6较开盘时明显下降
+    # 条件1: RSI6 < 35 且至少有一个确认信号（防止单独RSI超卖就低吸——接飞刀）
     rsi6 = None
     if tech:
         # 字段名格式: rsi.RSI_6
@@ -414,9 +484,30 @@ def check_low_signal(quote, tech, fund):
                 except (ValueError, TypeError):
                     pass
     if rsi6 is not None:
-        if rsi6 < 35:
+        if rsi6 < 25:
+            # RSI极度超卖，单独算一个强条件
             conditions += 1
-            details.append(f"RSI6={rsi6:.1f}")
+            details.append(f"RSI6={rsi6:.1f}极度超卖")
+        elif rsi6 < 35:
+            # RSI超卖，但需要确认（不算独立条件，只做加分项）
+            # 如果同时有MACD绿柱缩短或股价接近低点，才算有效
+            details.append(f"RSI6={rsi6:.1f}(待确认)")
+            # 检查MACD是否同步
+            macd_hist_check = None
+            if tech:
+                for key in ["macd.macd", "macd_hist", "macd.histogram"]:
+                    val = tech.get(key)
+                    if val and val != "-":
+                        try:
+                            macd_hist_check = float(val)
+                            break
+                        except (ValueError, TypeError):
+                            pass
+            if macd_hist_check is not None and -0.2 < macd_hist_check < 0.1:
+                # MACD绿柱缩短或即将翻红，确认RSI超卖有效
+                conditions += 1
+                details.append(f"RSI6={rsi6:.1f}+MACD确认")
+            # 否则RSI超卖单独不算条件，避免接飞刀
 
     # 条件2: 当日跌幅 > 1.0%
     change_pct = None
@@ -468,7 +559,7 @@ def check_low_signal(quote, tech, fund):
             conditions += 1
             details.append("MACD即将翻红")
 
-    # 条件5: 主力净流出在收窄
+    # 条件5: 主力净流出在收窄（收紧条件：不再白送）
     net_amount = None
     if fund:
         for key in ["mainnetflow", "main_net_flow", "netamount"]:
@@ -480,9 +571,15 @@ def check_low_signal(quote, tech, fund):
                 except (ValueError, TypeError):
                     pass
     if net_amount is not None:
-        if net_amount > 0 or (net_amount < 0 and abs(net_amount) < 5000000):
+        # 新逻辑：主力净流入为正才算"收窄"，或者净流出但金额极小（<阈值）且股价在反弹
+        # 不再简单认为 abs < 500万就算收窄（太容易触发）
+        if net_amount > 0:
             conditions += 1
-            details.append("主力流出收窄")
+            details.append("主力净流入")
+        elif net_amount < 0 and abs(net_amount) < MAIN_FLOW_NARROW_THRESHOLD and change_pct is not None and change_pct > -0.5:
+            # 净流出很小（<500万）且股价跌幅不大（>-0.5%），说明抛压在减弱
+            conditions += 1
+            details.append(f"主力流出微弱{abs(net_amount)/10000:.0f}万")
 
     # 条件6: 量比 < 0.8
     volume_ratio = None
@@ -571,7 +668,7 @@ def check_high_signal(quote, tech, fund):
             conditions += 1
             details.append("MACD即将翻绿")
 
-    # 条件5: 主力净流入在收窄
+    # 条件5: 主力净流入在收窄（收紧条件）
     net_amount = None
     if fund:
         for key in ["mainnetflow", "main_net_flow", "netamount"]:
@@ -583,9 +680,13 @@ def check_high_signal(quote, tech, fund):
                 except (ValueError, TypeError):
                     pass
     if net_amount is not None:
-        if net_amount < 0 or (net_amount > 0 and net_amount < 5000000):
+        if net_amount < 0:
             conditions += 1
-            details.append("主力流入收窄")
+            details.append("主力净流出")
+        elif net_amount > 0 and abs(net_amount) < MAIN_FLOW_NARROW_THRESHOLD and change_pct is not None and change_pct < 0.5:
+            # 净流入很小（<500万）且股价涨幅不大（<0.5%），说明买盘在减弱
+            conditions += 1
+            details.append(f"主力流入微弱{abs(net_amount)/10000:.0f}万")
 
     # 条件6: 换手率 > 3%
     turnover = None
@@ -819,15 +920,27 @@ def process_signal(signals_data, code, signal_type, price, rating_int, details, 
                          f"卖@{pending['price']}→买@{price} 净+{net_return:.2f}%")
 
         else:
-            # 同向信号，更新首笔（取更优价格）
+            # 同向信号：不再静默更新价格，而是提醒用户
             if signal_type == "low" and price < pending["price"]:
+                old_price = pending["price"]
                 pending["price"] = price
                 pending["time"] = time_str
-                result_msg = f"  [更新] {name}({code}) 低吸信号价格更新为 {price}"
+                improvement = (old_price - price) / old_price * 100
+                result_msg = (
+                    f"  [⚠️ 更优低吸价] {name}({code})\n"
+                    f"    已有正T第1笔低吸@{old_price} → 现价{price}更低(-{improvement:.2f}%)\n"
+                    f"    💡 如已买入，可考虑调整止损至{price * (1 - 0.01):.2f}（-1%）"
+                )
             elif signal_type == "high" and price > pending["price"]:
+                old_price = pending["price"]
                 pending["price"] = price
                 pending["time"] = time_str
-                result_msg = f"  [更新] {name}({code}) 高抛信号价格更新为 {price}"
+                improvement = (price - old_price) / old_price * 100
+                result_msg = (
+                    f"  [⚠️ 更优高抛价] {name}({code})\n"
+                    f"    已有反T第1笔高抛@{old_price} → 现价{price}更高(+{improvement:.2f}%)\n"
+                    f"    💡 如已卖出，可考虑调整回补位至{price * (1 + 0.01):.2f}（+1%）"
+                )
             else:
                 result_msg = f"  [忽略] {name}({code}) 同向信号价格未优于已有记录"
 
@@ -919,10 +1032,10 @@ def _generate_dashboard():
     except Exception:
         pass
 
-def run_check():
-    """执行一次完整的T+0信号检查"""
+def run_check(force=False):
+    """执行一次完整的T+0信号检查。force=True时忽略交易时段限制（用于收盘日报）"""
     global _check_count
-    if not is_trading_hours():
+    if not force and not is_trading_hours():
         log("⏸️ 非交易时段，跳过")
         write_heartbeat(getattr(run_check, '_count', 0), False, 0, 0, "非交易时段")
         _generate_dashboard()
@@ -942,11 +1055,20 @@ def run_check():
         _generate_dashboard()
         return
 
-    output_lines = [f"\n🎯 T+0交易信号 | {now_cst()}"]
+    # 获取当前交易阶段
+    phase, min_conditions = get_trading_phase()
+    log(f"  当前阶段: {phase} (最低条件数: {min_conditions})")
+
+    output_lines = [f"\n🎯 T+0交易信号 | {now_cst()} | 阶段:{phase}"]
     has_signal = False
     signaled_codes = set()  # 本轮已触发信号的股票，防止同时触发低吸+高抛自我配对
 
+    # ═══ 阶段1: 正常信号检查（所有阶段都做） ═══
     for code in ALL_CODES:
+        # T+0禁用标的：只记录行情，不触发信号
+        if code in T0_DISABLED:
+            continue
+
         quote = quotes.get(code, {})
         tech = techs.get(code, {})
         fund = funds.get(code, {})
@@ -968,29 +1090,56 @@ def run_check():
 
         amplitude = (high - low) / low * 100 if low > 0 else 0
 
-        # 检查低吸信号
-        low_cond, low_details = check_low_signal(quote, tech, fund)
-        if low_cond >= 2:
-            rating_int, rating_str = calc_rating(amplitude)
-            msg = process_signal(signals_data, code, "low", price, rating_int, low_details, amplitude)
-            signaled_codes.add(code)
-            output_lines.append(msg)
-            has_signal = True
+        # 检查是否有未配对仓位
+        stock_state = get_stock_state(signals_data, code)
+        pending = stock_state.get("pendingSignal")
 
-        # 检查高抛信号（本轮已触发信号的不再检查，防止自我配对）
-        if code not in signaled_codes:
-            high_cond, high_details = check_high_signal(quote, tech, fund)
-            if high_cond >= 2:
+        if phase in ("normal", "active", "forceclose"):
+            # 根据阶段决定门槛
+            if phase == "normal":
+                threshold = 2  # 精选模式
+            elif phase == "active":
+                # 主动寻配：有未配对仓位的，反向信号门槛降为1
+                if pending:
+                    threshold = 1
+                else:
+                    threshold = 2  # 无仓位的仍用正常门槛
+            else:  # forceclose
+                threshold = 1  # 强制收尾，门槛最低
+
+            # 检查低吸信号
+            low_cond, low_details = check_low_signal(quote, tech, fund)
+            if low_cond >= threshold:
                 rating_int, rating_str = calc_rating(amplitude)
-                msg = process_signal(signals_data, code, "high", price, rating_int, high_details, amplitude)
+                msg = process_signal(signals_data, code, "low", price, rating_int, low_details, amplitude)
                 signaled_codes.add(code)
                 output_lines.append(msg)
                 has_signal = True
+
+            # 检查高抛信号（本轮已触发信号的不再检查，防止自我配对）
+            if code not in signaled_codes:
+                high_cond, high_details = check_high_signal(quote, tech, fund)
+                if high_cond >= threshold:
+                    rating_int, rating_str = calc_rating(amplitude)
+                    msg = process_signal(signals_data, code, "high", price, rating_int, high_details, amplitude)
+                    signaled_codes.add(code)
+                    output_lines.append(msg)
+                    has_signal = True
+
+    # ═══ 阶段2: 强制闭环逻辑（14:30之后） ═══
+    if phase in ("forceclose", "hardclose"):
+        forceclose_msgs = _force_close_pending(signals_data, quotes, phase)
+        if forceclose_msgs:
+            output_lines.extend(forceclose_msgs)
+            has_signal = True
 
     # 今日T+0全景
     panorama = ["\n  【📋 今日T+0全景】"]
     for code in ALL_CODES:
         name = STOCK_NAMES.get(code, code)
+        if code in T0_DISABLED:
+            panorama.append(f"    {name}: 🔇 T+0禁用（仅监控）")
+            continue
         state = signals_data["stocks"].get(code)
         if not state:
             panorama.append(f"    {name}: 无信号")
@@ -998,12 +1147,14 @@ def run_check():
 
         parts = []
         for r in state.get("completedRounds", []):
-            parts.append(f"✅第{r['round']}轮{r['type']}(+{r['netReturn']:.2f}%)")
+            tag = "⚡" if r.get("forceclose") else "✅"
+            parts.append(f"{tag}第{r['round']}轮{r['type']}(+{r['netReturn']:.2f}%)")
 
         pending = state.get("pendingSignal")
         if pending:
             leg_desc = "低吸" if pending["signalType"] == "low" else "高抛"
-            parts.append(f"⏳第{pending['round']}轮{pending['type']}等待配对({pending['time']}{leg_desc}@{pending['price']})")
+            elapsed = _minutes_since(pending["time"])
+            parts.append(f"⏳第{pending['round']}轮{pending['type']}等待配对({pending['time']}{leg_desc}@{pending['price']} 已等{elapsed}分钟)")
 
         if parts:
             panorama.append(f"    {name}: {' | '.join(parts)}")
@@ -1021,7 +1172,7 @@ def run_check():
         for line in output_lines:
             print(line)
     else:
-        print(f"✅ T+0盯盘 | 15只标的均无信号 | {now_cst()}")
+        print(f"✅ T+0盯盘 | 15只标的均无信号 | {now_cst()} | 阶段:{phase}")
 
     # 写入心跳
     write_heartbeat(0, has_signal, len(signaled_codes), len(quotes))
@@ -1031,8 +1182,120 @@ def run_check():
 
     # 15:00收盘总结
     now = datetime.now()
-    if now.hour == 15 and now.minute >= 0 and now.minute < 6:
+    if now.hour == 15 and now.minute >= 0 and now.minute < 10:
         print_daily_report(signals_data)
+
+
+def _minutes_since(time_str):
+    """计算从指定时间（HH:MM格式）到现在经过的分钟数"""
+    try:
+        h, m = map(int, time_str.split(":"))
+        now = datetime.now()
+        then = now.replace(hour=h, minute=m, second=0, microsecond=0)
+        delta = (now - then).total_seconds() / 60
+        return max(int(delta), 0)
+    except Exception:
+        return 0
+
+
+def _force_close_pending(signals_data, quotes, phase):
+    """强制闭环：对所有未配对仓位生成反向信号并配对
+    
+    phase="forceclose"(14:30-14:50): 优先配对，但仍尝试找合理价位
+    phase="hardclose"(14:50+): 无条件按市价平仓，不管盈亏
+    """
+    msgs = []
+    
+    for code in ALL_CODES:
+        if code in T0_DISABLED:
+            continue
+            
+        stock_state = signals_data.get("stocks", {}).get(code)
+        if not stock_state:
+            continue
+            
+        pending = stock_state.get("pendingSignal")
+        if not pending:
+            continue
+            
+        name = STOCK_NAMES.get(code, code)
+        quote = quotes.get(code, {})
+        if not quote:
+            continue
+            
+        try:
+            current_price = float(quote.get("price", quote.get("currentPrice", 0)))
+        except (ValueError, TypeError):
+            continue
+            
+        if current_price <= 0:
+            continue
+        
+        time_str = now_cst()
+        
+        # 计算配对结果
+        if pending["signalType"] == "low":
+            # 正T：低吸后高抛
+            spread = (current_price - pending["price"]) / pending["price"] * 100
+            net_return = spread - ROUND_TRIP_COST * 100
+            pair = {
+                "round": pending["round"],
+                "type": "正T",
+                "buyTime": pending["time"],
+                "buyPrice": pending["price"],
+                "sellTime": time_str,
+                "sellPrice": current_price,
+                "spread": round(spread, 2),
+                "netReturn": round(net_return, 2),
+                "forceclose": True,
+                "forceclosePhase": phase,
+            }
+            tag = "⚠️硬截止平仓" if phase == "hardclose" else "⚡强制收尾"
+            msgs.append(
+                f"  【{tag} — 正T】\n"
+                f"  {name}({code}): 第{pending['round']}轮正T 强制闭环\n"
+                f"    {pending['time']}低吸@{pending['price']} → {time_str}高抛@{current_price}\n"
+                f"    差价：{spread:+.2f}% | 扣费后净收益：{net_return:+.2f}%\n"
+                f"    📌 底仓保持不变，T仓已闭环"
+            )
+        else:
+            # 反T：高抛后低吸
+            spread = (pending["price"] - current_price) / pending["price"] * 100
+            net_return = spread - ROUND_TRIP_COST * 100
+            pair = {
+                "round": pending["round"],
+                "type": "反T",
+                "sellTime": pending["time"],
+                "sellPrice": pending["price"],
+                "buyTime": time_str,
+                "buyPrice": current_price,
+                "spread": round(spread, 2),
+                "netReturn": round(net_return, 2),
+                "forceclose": True,
+                "forceclosePhase": phase,
+            }
+            tag = "⚠️硬截止平仓" if phase == "hardclose" else "⚡强制收尾"
+            msgs.append(
+                f"  【{tag} — 反T】\n"
+                f"  {name}({code}): 第{pending['round']}轮反T 强制闭环\n"
+                f"    {pending['time']}高抛@{pending['price']} → {time_str}低吸@{current_price}\n"
+                f"    差价：{spread:+.2f}% | 扣费后净收益：{net_return:+.2f}%\n"
+                f"    📌 底仓保持不变，T仓已闭环"
+            )
+        
+        stock_state["completedRounds"].append(pair)
+        signals_data["completedPairs"].append({
+            "stock": name, "code": code, **pair
+        })
+        stock_state["pendingSignal"] = None
+        signals_data["stocks"][code] = stock_state
+        
+        # 强制闭环通知（高优先级）
+        notify_signal("high" if pending["signalType"] == "low" else "low",
+                     name, current_price, f"强制平仓",
+                     f"底仓不变 | 净{net_return:+.2f}%")
+    
+    return msgs
 
 def print_daily_report(data):
     """输出今日T+0收盘日报"""
@@ -1050,27 +1313,34 @@ def print_daily_report(data):
     print(f"\n个股明细：")
     for code in ALL_CODES:
         name = STOCK_NAMES.get(code, code)
+        if code in T0_DISABLED:
+            print(f"  {name}: 🔇 T+0禁用（仅监控行情）")
+            continue
         state = data["stocks"].get(code)
         if not state or not state.get("completedRounds"):
             pending = state.get("pendingSignal") if state else None
             if pending:
-                print(f"  {name}: 未完成 - 第{pending['round']}轮{pending['type']}仅完成{'低吸' if pending['signalType']=='low' else '高抛'}@{pending['price']}")
+                elapsed = _minutes_since(pending["time"])
+                print(f"  {name}: ⚠️未完成 - 第{pending['round']}轮{pending['type']}仅完成{'低吸' if pending['signalType']=='low' else '高抛'}@{pending['price']} (已等{elapsed}分钟)")
             continue
 
         rounds = state["completedRounds"]
         stock_return = sum(r["netReturn"] for r in rounds)
+        forced = sum(1 for r in rounds if r.get("forceclose"))
         zheng = sum(1 for r in rounds if r["type"] == "正T")
         fan = sum(1 for r in rounds if r["type"] == "反T")
         type_str = []
         if zheng: type_str.append(f"正T×{zheng}")
         if fan: type_str.append(f"反T×{fan}")
+        if forced: type_str.append(f"强制平仓×{forced}")
         print(f"  {name}: {len(rounds)}轮完成 | {' | '.join(type_str)} | 净收益+{stock_return:.2f}%")
 
         for r in rounds:
+            tag = "⚡" if r.get("forceclose") else ""
             if r["type"] == "正T":
-                print(f"    - 第{r['round']}轮正T: {r['buyTime']}买@{r['buyPrice']} → {r['sellTime']}卖@{r['sellPrice']} (+{r['netReturn']:.2f}%)")
+                print(f"    - {tag}第{r['round']}轮正T: {r['buyTime']}买@{r['buyPrice']} → {r['sellTime']}卖@{r['sellPrice']} (+{r['netReturn']:.2f}%)")
             else:
-                print(f"    - 第{r['round']}轮反T: {r['sellTime']}卖@{r['sellPrice']} → {r['buyTime']}买@{r['buyPrice']} (+{r['netReturn']:.2f}%)")
+                print(f"    - {tag}第{r['round']}轮反T: {r['sellTime']}卖@{r['sellPrice']} → {r['buyTime']}买@{r['buyPrice']} (+{r['netReturn']:.2f}%)")
 
     print(f"\n今日信号触发统计：")
     low_count = sum(1 for s in data["allSignals"] if s["type"] == "low")
@@ -1158,9 +1428,10 @@ def generate_html_report(data, quotes=None):
         ret = pair.get("netReturn", 0)
         spread = pair.get("spread", 0)
         css_class = "positive" if ret > 0 else "negative"
+        force_tag = " ⚡强平" if pair.get("forceclose") else ""
         detail_rows += f"""
             <tr>
-                <td>{pair.get('stock','')}</td>
+                <td>{pair.get('stock','')}{force_tag}</td>
                 <td>第{pair.get('round',0)}轮</td>
                 <td>{pair.get('type','')}</td>
                 <td>{pair.get('buyTime','')}</td>
@@ -1171,16 +1442,19 @@ def generate_html_report(data, quotes=None):
                 <td class="{css_class}">{'+' if ret > 0 else ''}{ret:.2f}%</td>
             </tr>"""
 
-    # 未完成配对警告
+    # 未完成配对警告（强化：标注底仓风险）
     unpaired_html = ""
     if unpaired:
         unpaired_items = ""
         for u in unpaired:
-            direction = "低吸" if u["signalType"] == "low" else "高抛"
-            unpaired_items += f'<p>{u["stock"]}({u["code"]}): 第{u["round"]}轮{u["type"]} | {u["time"]}{direction}@{u["price"]} — 收盘未配对，需持股过夜或次日处理</p>\n'
+            direction = "低吸(已买入)" if u["signalType"] == "low" else "高抛(已卖出)"
+            t_type = u.get("type", "")
+            risk = "T仓买入未卖出，底仓多出1份" if u["signalType"] == "low" else "T仓卖出未回补，底仓少1份"
+            unpaired_items += f'<p>{u["stock"]}({u["code"]}): 第{u["round"]}轮{t_type} | {u["time"]}{direction}@{u["price"]} — 🔴{risk} | 系统将在14:30后强制平仓</p>\n'
         unpaired_html = f"""
     <div class="warning-box">
-        <h3>⚠️ 未完成配对（{len(unpaired)}笔）</h3>
+        <h3>⚠️ 未完成配对（{len(unpaired)}笔）— 底仓风险暴露</h3>
+        <p style="color:#f85149;font-weight:bold;margin-bottom:10px;">T+0铁律：底仓不变！系统将在14:30后强制闭环，14:50前全部平仓</p>
         {unpaired_items}
     </div>"""
 
@@ -1408,8 +1682,19 @@ def main():
                     except Exception:
                         pass
                 else:
-                    # 非交易时段，计算距离下次开盘的等待时间
+                    # 非交易时段
                     now = datetime.now()
+
+                    # 收盘后15:00-15:05：做最后一次检查+生成日报
+                    if now.hour == 15 and now.minute < 5 and check_count > 0:
+                        log("📊 收盘后最终检查，生成日报...")
+                        run_check(force=True)  # force=True忽略交易时段限制
+                        signals_data = load_signals()
+                        if signals_data:
+                            print_daily_report(signals_data)
+                        check_count = 0  # 避免重复触发
+
+                    # 计算距离下次开盘的等待时间
                     next_start = None
                     for sh, sm, eh, em in TRADING_SESSIONS:
                         start = now.replace(hour=sh, minute=sm, second=0, microsecond=0)
@@ -1423,6 +1708,11 @@ def main():
                             log("📊 今日收盘，监控进程自动退出（明天09:25由计划任务启动）")
                             # 生成最后一次仪表盘
                             _generate_dashboard()
+                            # 收盘日报：直接读取今日信号数据生成报告
+                            # （不能调run_check因为15:00后is_trading_hours()返回False）
+                            signals_data = load_signals()
+                            if signals_data:
+                                print_daily_report(signals_data)
                             break
                         # 午休时段（11:30-13:00），等到下午开盘
                         next_start = now.replace(hour=13, minute=0, second=0, microsecond=0)

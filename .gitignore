@@ -5,11 +5,15 @@ data/t0-signals-*.json
 data/t0-heartbeat.json
 data/t0-snapshot.json
 data/reports/
+data/holidays.txt
 
 # Python
 __pycache__/
 *.pyc
 *.pyo
+
+# WorkBuddy workspace
+.workbuddy/
 
 # OS
 Thumbs.db
