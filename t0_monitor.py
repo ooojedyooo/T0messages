@@ -1417,8 +1417,17 @@ def main():
                             next_start = start
                             break
                     if next_start is None:
-                        # 今天没有更多交易时段，等到明天
-                        next_start = (now + timedelta(days=1)).replace(hour=9, minute=30, second=0, microsecond=0)
+                        # 今天没有更多交易时段
+                        # 如果已过15:05，自动退出（明天由计划任务重新启动）
+                        if now.hour >= 15 and now.minute >= 5:
+                            log("📊 今日收盘，监控进程自动退出（明天09:25由计划任务启动）")
+                            # 生成最后一次仪表盘
+                            _generate_dashboard()
+                            break
+                        # 午休时段（11:30-13:00），等到下午开盘
+                        next_start = now.replace(hour=13, minute=0, second=0, microsecond=0)
+                        if next_start <= now:
+                            next_start = (now + timedelta(days=1)).replace(hour=9, minute=30, second=0, microsecond=0)
 
                     wait_secs = (next_start - now).total_seconds()
                     if wait_secs > 60:
