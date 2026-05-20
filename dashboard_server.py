@@ -595,11 +595,11 @@ class DashboardHandler(SimpleHTTPRequestHandler):
 
 def main():
     parser = argparse.ArgumentParser(description="T+0 盯盘仪表盘服务器")
-    parser.add_argument("--port", type=int, default=8899, help="端口号（默认8899）")
+    parser.add_argument("--port", type=int, default=8877, help="端口号（默认8877）")
     parser.add_argument("--no-open", action="store_true", help="不自动打开浏览器")
     args = parser.parse_args()
 
-    server = HTTPServer(('127.0.0.1', args.port), DashboardHandler)
+    server = HTTPServer(('0.0.0.0', args.port), DashboardHandler)
     url = f"http://localhost:{args.port}"
 
     print(f"📊 T+0 盯盘仪表盘已启动: {url}")
