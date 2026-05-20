@@ -907,12 +907,25 @@ def write_snapshot(quotes, techs, funds):
     except Exception:
         pass
 
+def _generate_dashboard():
+    """生成静态仪表盘HTML，供浏览器直接打开查看"""
+    try:
+        script_path = os.path.join(_SCRIPT_DIR, "generate_dashboard.py")
+        if os.path.exists(script_path):
+            subprocess.run(
+                [sys.executable, script_path],
+                capture_output=True, timeout=15
+            )
+    except Exception:
+        pass
+
 def run_check():
     """执行一次完整的T+0信号检查"""
     global _check_count
     if not is_trading_hours():
         log("⏸️ 非交易时段，跳过")
         write_heartbeat(getattr(run_check, '_count', 0), False, 0, 0, "非交易时段")
+        _generate_dashboard()
         return
 
     # 加载/初始化信号数据
@@ -926,6 +939,7 @@ def run_check():
     if not quotes:
         log("⚠️ 未获取到行情数据，跳过本次检查")
         write_heartbeat(0, False, 0, 0, "未获取到行情数据")
+        _generate_dashboard()
         return
 
     output_lines = [f"\n🎯 T+0交易信号 | {now_cst()}"]
@@ -1011,6 +1025,9 @@ def run_check():
 
     # 写入心跳
     write_heartbeat(0, has_signal, len(signaled_codes), len(quotes))
+
+    # 生成仪表盘HTML
+    _generate_dashboard()
 
     # 15:00收盘总结
     now = datetime.now()
