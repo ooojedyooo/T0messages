@@ -28,6 +28,8 @@ SIGNALS_FILE = os.path.join(SIGNALS_DIR, "t0-signals-today.json")
 LOG_FILE = os.path.join(SIGNALS_DIR, "t0-monitor.log")
 PID_FILE = os.path.join(SIGNALS_DIR, "t0-monitor.pid")
 HOLIDAYS_FILE = os.path.join(SIGNALS_DIR, "holidays.txt")
+HEARTBEAT_FILE = os.path.join(SIGNALS_DIR, "t0-heartbeat.json")
+SNAPSHOT_FILE = os.path.join(SIGNALS_DIR, "t0-snapshot.json")
 
 # 交易时段
 TRADING_SESSIONS = [
@@ -836,10 +838,81 @@ def process_signal(signals_data, code, signal_type, price, rating_int, details, 
 # 主检查逻辑
 # ═══════════════════════════════════════════════════
 
+def write_heartbeat(check_count, has_signal, signal_count, quotes_count, error_msg=""):
+    """写入心跳文件，供Web仪表盘读取"""
+    heartbeat = {
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "pid": os.getpid(),
+        "checkCount": check_count,
+        "hasSignal": has_signal,
+        "signalCount": signal_count,
+        "quotesFetched": quotes_count,
+        "error": error_msg,
+        "interval": 300,
+    }
+    try:
+        os.makedirs(SIGNALS_DIR, exist_ok=True)
+        with open(HEARTBEAT_FILE, "w", encoding="utf-8") as f:
+            json.dump(heartbeat, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+def write_snapshot(quotes, techs, funds):
+    """写入当前行情快照，供Web仪表盘展示"""
+    snapshot = {
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "stocks": {}
+    }
+    for code in ALL_CODES:
+        quote = quotes.get(code, {})
+        tech = techs.get(code, {})
+        fund = funds.get(code, {})
+        try:
+            price = float(quote.get("price", quote.get("currentPrice", 0)))
+            low = float(quote.get("low", quote.get("todayLow", 0)))
+            high = float(quote.get("high", quote.get("todayHigh", 0)))
+            change_pct = float(quote.get("change_percent", quote.get("changepct", quote.get("changeprecent", 0))))
+        except (ValueError, TypeError):
+            price = low = high = change_pct = 0
+
+        rsi6 = None
+        if tech:
+            for key in ["rsi.rsi_6", "rsi_6", "rsi.rsi6"]:
+                val = tech.get(key)
+                if val and val != "-":
+                    try: rsi6 = float(val); break
+                    except: pass
+
+        main_net = None
+        if fund:
+            for key in ["mainnetflow", "main_net_flow", "netamount"]:
+                val = fund.get(key)
+                if val and val != "-":
+                    try: main_net = float(val); break
+                    except: pass
+
+        snapshot["stocks"][code] = {
+            "name": STOCK_NAMES.get(code, code),
+            "price": price,
+            "high": high,
+            "low": low,
+            "changePercent": change_pct,
+            "rsi6": rsi6,
+            "mainNetFlow": main_net,
+        }
+    try:
+        os.makedirs(SIGNALS_DIR, exist_ok=True)
+        with open(SNAPSHOT_FILE, "w", encoding="utf-8") as f:
+            json.dump(snapshot, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
 def run_check():
     """执行一次完整的T+0信号检查"""
+    global _check_count
     if not is_trading_hours():
         log("⏸️ 非交易时段，跳过")
+        write_heartbeat(getattr(run_check, '_count', 0), False, 0, 0, "非交易时段")
         return
 
     # 加载/初始化信号数据
@@ -852,6 +925,7 @@ def run_check():
 
     if not quotes:
         log("⚠️ 未获取到行情数据，跳过本次检查")
+        write_heartbeat(0, False, 0, 0, "未获取到行情数据")
         return
 
     output_lines = [f"\n🎯 T+0交易信号 | {now_cst()}"]
@@ -925,12 +999,18 @@ def run_check():
     # 保存信号数据
     save_signals(signals_data)
 
+    # 写入行情快照
+    write_snapshot(quotes, techs, funds)
+
     # 输出结果
     if has_signal:
         for line in output_lines:
             print(line)
     else:
         print(f"✅ T+0盯盘 | 15只标的均无信号 | {now_cst()}")
+
+    # 写入心跳
+    write_heartbeat(0, has_signal, len(signaled_codes), len(quotes))
 
     # 15:00收盘总结
     now = datetime.now()
@@ -1301,6 +1381,15 @@ def main():
                     check_count += 1
                     log(f"═══ 第{check_count}次检查 ═══")
                     run_check()
+                    # 更新心跳中的检查次数
+                    try:
+                        with open(HEARTBEAT_FILE, "r", encoding="utf-8") as f:
+                            hb = json.load(f)
+                        hb["checkCount"] = check_count
+                        with open(HEARTBEAT_FILE, "w", encoding="utf-8") as f:
+                            json.dump(hb, f, ensure_ascii=False, indent=2)
+                    except Exception:
+                        pass
                 else:
                     # 非交易时段，计算距离下次开盘的等待时间
                     now = datetime.now()

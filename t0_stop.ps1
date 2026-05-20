@@ -71,3 +71,17 @@ if ($running) {
 # Clean up PID file
 Remove-Item $pidFilePath -Force -ErrorAction SilentlyContinue
 Write-Log "PID file cleaned up"
+
+# Also stop dashboard server
+Write-Log "Stopping dashboard server..."
+$dashboardProcs = Get-WmiObject Win32_Process | Where-Object {
+    $_.CommandLine -like "*dashboard_server*" -and $_.Name -like "python*"
+}
+if ($dashboardProcs) {
+    foreach ($proc in $dashboardProcs) {
+        Stop-Process -Id $proc.ProcessId -Force
+        Write-Log "Terminated dashboard process PID:$($proc.ProcessId)"
+    }
+} else {
+    Write-Log "No dashboard server process found"
+}
