@@ -1,0 +1,14 @@
+# Runtime/transient files
+data/t0-monitor.log
+data/t0-monitor.pid
+data/t0-signals-*.json
+data/reports/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# OS
+Thumbs.db
+.DS_Store
