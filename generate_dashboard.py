@@ -315,14 +315,35 @@ function renderStocks(data) {{
     if (pendingSignal) {{
       const dirLabel = pendingSignal.signalType === "low" ? "低吸" : "高抛";
       const stars = pendingSignal.strength ? "\u2605".repeat(pendingSignal.strength) + "\u2606".repeat(6 - pendingSignal.strength) : "";
+      const trendIcon = pendingSignal.trend === "BULL" ? "🟢" : pendingSignal.trend === "BEAR" ? "🔴" : "🟡";
+      
+      // 构建触发条件列表
+      let conditionsHtml = "";
+      const conds = pendingSignal.details || [];
+      if (conds.length > 0) {{
+        conditionsHtml = '<div style="margin-top:4px;font-size:11px;color:var(--text-dim);line-height:1.6">';
+        conds.forEach(c => {{
+          let clr = "var(--text-dim)";
+          if (c.startsWith("A")) clr = "var(--blue)";
+          else if (c.startsWith("B")) clr = "var(--green)";
+          conditionsHtml += '<span style="color:' + clr + ';margin-right:6px">' + c + '</span><br>';
+        }});
+        conditionsHtml += '</div>';
+      }}
+      
       pendingHtml = `
         <div class="signal-card pending">
           <div class="sig-row">
-            <span class="sig-label">&#x23f3; ${{pendingSignal.type}}第${{pendingSignal.round}}轮 等待配对</span>
-            <span class="sig-strength">${{stars}}</span>
+            <span class="sig-label">&#x23f3; ${{pendingSignal.type}}第${{pendingSignal.round}}轮 ${{trendIcon}}${{pendingSignal.trend || '?'}} ${{dirLabel}}@${{pendingSignal.price}}</span>
+            <span class="sig-strength" title="${{pendingSignal.strength || 0}}/6个条件满足">${{stars}} (${{pendingSignal.strength || 0}}/6)</span>
           </div>
-          <div class="sig-detail">${{pendingSignal.time}}${{dirLabel}}@${{pendingSignal.price}} | ${{vwapHtml}} | 入场${{pendingSignal.entryZone || '--'}}</div>
-          <div class="sig-detail" style="margin-top:2px;">目标${{pendingSignal.targetZone || '--'}} | 止损${{pendingSignal.stopLoss || '--'}}</div>
+          <div class="sig-detail" style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
+            <span>入场：${{pendingSignal.entryZone || '--'}}</span>
+            <span>目标：${{pendingSignal.targetZone || '--'}}</span>
+            <span style="color:var(--red)">止损：${{pendingSignal.stopLoss || '--'}} (-1.5%)</span>
+            <span>${{vwapHtml}}</span>
+          </div>
+          ${{conditionsHtml}}
         </div>`;
     }}
     

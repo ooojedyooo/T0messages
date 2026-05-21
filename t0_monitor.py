@@ -673,9 +673,7 @@ def check_entry_positive(code, quote, vwap, trend, orb):
     if vwap and price > 0:
         vwap_dev = (price - vwap) / vwap * 100
         if vwap_dev < 0.5:
-            # 价格在VWAP附近或下方，锚点支撑有效
-            confirmed.append(f"VWAP锚点(偏差{vwap_dev:+.2f}%)")
-        # 价格大幅高于VWAP则不满足正T条件
+            confirmed.append(f"A锚点:VWAP支撑(偏差{vwap_dev:+.2f}%)")
     
     # ═══ B: 量价配合 — 缩量止跌 + 放量反弹 ═══
     volume_ratio = None
@@ -690,41 +688,38 @@ def check_entry_positive(code, quote, vwap, trend, orb):
     
     if volume_ratio is not None:
         if change_pct < 0 and volume_ratio < 0.8:
-            confirmed.append("缩量下跌(抛压小)")
+            confirmed.append("B量价:缩量下跌(抛压小)")
         elif change_pct > 0 and volume_ratio > 1.0:
-            confirmed.append("放量反弹(动能足)")
+            confirmed.append("B量价:放量反弹(动能足)")
         elif 0.8 <= volume_ratio <= 1.2 and abs(change_pct) < 0.5:
-            confirmed.append("量价平稳")
+            confirmed.append("B量价:平稳")
     
     # ═══ C: 趋势一致 ═══
     if trend in ("BULL", "RANGE"):
-        confirmed.append(f"趋势{trend}(允正T)")
+        confirmed.append(f"C趋势:{trend}(允正T)")
     
     # ═══ D: 动量背离 — 价格新低但RSI不新低 ═══
     dist_to_low = (price - low) / low * 100 if low > 0 else 100
     if dist_to_low < 0.5:
-        # 价格接近日内低点，检查RSI
-        # 简化判断：接近低点+跌幅收窄=可能的底背离
         if change_pct > -1.5:
-            confirmed.append("疑似底背离(近低+跌幅收窄)")
+            confirmed.append("D背离:价近低+跌幅收窄")
     
     # ═══ E: 关键位支撑 ═══
     if orb and orb.get("orbLow"):
         orb_low = orb["orbLow"]
         dist_orb = (price - orb_low) / orb_low * 100
         if 0 < dist_orb < 1.5:
-            confirmed.append(f"ORB下沿支撑(距{dist_orb:.1f}%)")
+            confirmed.append(f"E关键:ORB支撑(距{dist_orb:.1f}%)")
     
     # ═══ F: 时间过滤 ═══
     now = datetime.now()
     h, m = now.hour, now.minute
-    # 09:30-09:45 开盘噪音，11:15-13:00 午餐前后
     if not (h == 9 and m < 45) and not (h == 11 and m >= 15) and not (h == 12):
-        confirmed.append("时间窗口OK")
+        confirmed.append("F时间:窗口OK")
     
     # 计算信号强度
     strength = len(confirmed)
-    has_core = any("VWAP" in c or "量价" in c for c in confirmed)
+    has_core = any("A锚点" in c or "B量价" in c for c in confirmed)
     
     if strength >= CONFIRM_MIN_TOTAL and has_core:
         # 计算入场区间、止损、目标
@@ -755,7 +750,7 @@ def check_entry_negative(code, quote, vwap, trend, orb):
     if vwap and price > 0:
         vwap_dev = (price - vwap) / vwap * 100
         if vwap_dev > -0.5:
-            confirmed.append(f"VWAP锚点(偏差{vwap_dev:+.2f}%)")
+            confirmed.append(f"A锚点:VWAP压力(偏差{vwap_dev:+.2f}%)")
     
     # ═══ B: 量价配合 — 放量滞涨 + 缩量回落 ═══
     volume_ratio = None
@@ -770,35 +765,35 @@ def check_entry_negative(code, quote, vwap, trend, orb):
     
     if volume_ratio is not None:
         if change_pct > 0 and volume_ratio > 1.5:
-            confirmed.append("放量滞涨(抛压现)")
+            confirmed.append("B量价:放量滞涨(抛压现)")
         elif change_pct < 0 and volume_ratio < 0.8:
-            confirmed.append("缩量回落(卖压减)")
+            confirmed.append("B量价:缩量回落(卖压减)")
     
     # ═══ C: 趋势一致 ═══
     if trend in ("BEAR", "RANGE"):
-        confirmed.append(f"趋势{trend}(允反T)")
+        confirmed.append(f"C趋势:{trend}(允反T)")
     
     # ═══ D: 动量背离 — 价格新高但RSI不新高 ═══
     dist_to_high = (high - price) / high * 100 if high > 0 else 100
     if dist_to_high < 0.5:
         if change_pct < 1.5:
-            confirmed.append("疑似顶背离(近高+涨幅收窄)")
+            confirmed.append("D背离:价近高+涨幅收窄")
     
     # ═══ E: 关键位压力 ═══
     if orb and orb.get("orbHigh"):
         orb_high = orb["orbHigh"]
         dist_orb = (orb_high - price) / orb_high * 100
         if 0 < dist_orb < 1.5:
-            confirmed.append(f"ORB上沿压力(距{dist_orb:.1f}%)")
+            confirmed.append(f"E关键:ORB压力(距{dist_orb:.1f}%)")
     
     # ═══ F: 时间过滤 ═══
     now = datetime.now()
     h, m = now.hour, now.minute
     if not (h == 9 and m < 45) and not (h == 11 and m >= 15) and not (h == 12):
-        confirmed.append("时间窗口OK")
+        confirmed.append("F时间:窗口OK")
     
     strength = len(confirmed)
-    has_core = any("VWAP" in c or "量价" in c for c in confirmed)
+    has_core = any("A锚点" in c or "B量价" in c for c in confirmed)
     
     if strength >= CONFIRM_MIN_TOTAL and has_core:
         entry_zone = f"{round(price, 2)}-{round(high * 0.998, 2)}"
@@ -826,6 +821,9 @@ def format_signal_card(code, name, direction, price, trend, vwap, strength, deta
     
     details_str = "\n".join(f"  ✅ {d}" for d in details)
     
+    # 条件说明
+    legend = "A=锚点 B=量价 C=趋势 D=背离 E=关键位 F=时间"
+    
     card = f"""
 ╔══════════════════════════════════════╗
 ║  ⚠️ T+0 交易提醒 | {now_cst()}            ║
@@ -841,9 +839,10 @@ def format_signal_card(code, name, direction, price, trend, vwap, strength, deta
 ║  止损价：{stop_loss or '--'} (-{abs(HARD_STOP_LOSS)}%)               ║
 ║  仓位建议：底仓{int(MAX_POSITION_RATIO*100)}%                      ║
 ║  ──────────────────────────────      ║
-║  确认信号：                         ║
+║  触发条件（{strength}/6）：                   ║
 {details_str}                         ║
-║  信号强度：{stars} ({strength}/6)            ║
+║  ──────────────────────────────      ║
+║  信号强度：{stars} ({strength}/6) ♜ {legend}    ║
 ║  ──────────────────────────────      ║
 ║  ⚠️ 人工确认后执行，盈亏自负       ║
 ╚══════════════════════════════════════╝"""
@@ -918,6 +917,12 @@ def process_entry_signal(signals_data, code, direction, price, strength, details
         if existing_type != direction:
             pair = _create_pair(pending, direction, price, time_str)
             if pair and pair.get("spread", 0) > MIN_SPREAD:
+                # 附加入场信号条件到配对记录（供历史分析）
+                pair["entryConditions"] = pending.get("details", [])
+                pair["entryStrength"] = pending.get("strength", 0)
+                pair["entryTrend"] = pending.get("trend", "")
+                pair["entryVWAP"] = pending.get("vwap", 0)
+                
                 stock_state["completedRounds"].append(pair)
                 signals_data.setdefault("completedPairs", []).append({
                     "stock": name, "code": code, **pair
