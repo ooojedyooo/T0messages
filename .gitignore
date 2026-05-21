@@ -6,6 +6,8 @@ data/t0-heartbeat.json
 data/t0-snapshot.json
 data/dashboard.html
 data/holidays.txt
+data/history/*.json
+!data/history.html
 
 # Python
 __pycache__/

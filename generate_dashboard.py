@@ -133,7 +133,7 @@ def generate_html():
 </div>
 
 <div class="footer">
-  T+0 日内盯盘系统 v2.0 &middot; VWAP锚定+多信号共振 &middot; 数据来源：westock-data &middot; 仅供参考，不构成投资建议
+  T+0 日内盯盘系统 v2.0 &middot; VWAP锚定+多信号共振 &middot; <a href="http://localhost:8899/history.html" style="color:var(--blue);text-decoration:underline">历史分析</a> &middot; 数据来源：westock-data &middot; 仅供参考，不构成投资建议
 </div>
 
 <script>

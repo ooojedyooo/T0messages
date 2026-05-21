@@ -30,6 +30,7 @@ PID_FILE = os.path.join(SIGNALS_DIR, "t0-monitor.pid")
 HOLIDAYS_FILE = os.path.join(SIGNALS_DIR, "holidays.txt")
 HEARTBEAT_FILE = os.path.join(SIGNALS_DIR, "t0-heartbeat.json")
 SNAPSHOT_FILE = os.path.join(SIGNALS_DIR, "t0-snapshot.json")
+HISTORY_DIR = os.path.join(SIGNALS_DIR, "history")
 
 # 交易时段
 TRADING_SESSIONS = [
@@ -1344,13 +1345,83 @@ def save_signals(data):
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 def init_signals():
-    """初始化今日信号"""
+    """初始化今日信号，同时归档昨日数据到 history/"""
+    _archive_yesterday()
+    
     return {
         "date": today_str(),
         "stocks": {},
         "allSignals": [],
         "completedPairs": [],
     }
+
+
+def _archive_yesterday():
+    """将昨日的信号数据归档到 history/YYYY-MM-DD.json"""
+    try:
+        if not os.path.exists(SIGNALS_FILE):
+            return
+        
+        with open(SIGNALS_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        
+        old_date = data.get("date", "")
+        if not old_date or old_date == today_str():
+            return  # 同一天，无需归档
+        
+        # 确保 history 目录存在
+        os.makedirs(HISTORY_DIR, exist_ok=True)
+        
+        archive_path = os.path.join(HISTORY_DIR, f"{old_date}.json")
+        
+        # 不重复归档
+        if os.path.exists(archive_path):
+            return
+        
+        # 计算摘要信息
+        completed = data.get("completedPairs", [])
+        total_return = sum(p.get("netReturn", 0) for p in completed)
+        winning = sum(1 for p in completed if p.get("netReturn", 0) > 0)
+        
+        archive_data = {
+            **data,
+            "_summary": {
+                "totalPairs": len(completed),
+                "totalReturn": round(total_return, 2),
+                "winRate": round(winning / max(len(completed), 1) * 100, 1),
+                "forcedClose": sum(1 for p in completed if p.get("forceclose")),
+            }
+        }
+        
+        with open(archive_path, "w", encoding="utf-8") as f:
+            json.dump(archive_data, f, ensure_ascii=False, indent=2)
+        
+        # 更新汇总索引
+        _update_history_index(archive_data["_summary"], old_date)
+        
+        log(f"📦 昨日数据已归档: {archive_path}")
+    except Exception as e:
+        log(f"⚠️ 归档失败: {e}")
+
+
+def _update_history_index(daily_summary, date_str):
+    """更新历史汇总索引文件"""
+    index_path = os.path.join(HISTORY_DIR, "history-summary.json")
+    records = []
+    if os.path.exists(index_path):
+        try:
+            with open(index_path, "r", encoding="utf-8") as f:
+                records = json.load(f)
+        except Exception:
+            records = []
+    
+    # 检查是否已存在（避免重复）
+    existing = [r for r in records if r.get("date") != date_str]
+    existing.append({"date": date_str, **daily_summary})
+    existing.sort(key=lambda r: r["date"])
+    
+    with open(index_path, "w", encoding="utf-8") as f:
+        json.dump(existing, f, ensure_ascii=False, indent=2)
 
 def get_stock_state(signals_data, code):
     """获取某只股票的当前状态"""
@@ -2375,11 +2446,15 @@ def main():
     # 覆盖数据目录
     if args.data_dir:
         global SIGNALS_DIR, SIGNALS_FILE, LOG_FILE, PID_FILE, HOLIDAYS_FILE
+        global HEARTBEAT_FILE, SNAPSHOT_FILE, HISTORY_DIR
         SIGNALS_DIR = args.data_dir
         SIGNALS_FILE = os.path.join(SIGNALS_DIR, "t0-signals-today.json")
         LOG_FILE = os.path.join(SIGNALS_DIR, "t0-monitor.log")
         PID_FILE = os.path.join(SIGNALS_DIR, "t0-monitor.pid")
         HOLIDAYS_FILE = os.path.join(SIGNALS_DIR, "holidays.txt")
+        HEARTBEAT_FILE = os.path.join(SIGNALS_DIR, "t0-heartbeat.json")
+        SNAPSHOT_FILE = os.path.join(SIGNALS_DIR, "t0-snapshot.json")
+        HISTORY_DIR = os.path.join(SIGNALS_DIR, "history")
 
     os.makedirs(SIGNALS_DIR, exist_ok=True)
 
