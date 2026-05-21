@@ -74,6 +74,35 @@ PHASE_FORCECLOSE_END  = (14, 50)   # 14:30-14:50 强制收尾：无条件配对
 MAIN_FLOW_NARROW_THRESHOLD = 5_000_000  # 500万
 
 # ═══════════════════════════════════════════════════
+# 新一代策略配置（VWAP锚定 + 多信号共振）
+# ═══════════════════════════════════════════════════
+
+# —— 趋势过滤 ——
+EMA_FAST = 20          # 快线周期（日线MA20替代EMA20，下同）
+EMA_SLOW = 60          # 慢线周期
+TREND_LOOKBACK = 60    # 趋势回溯天数
+
+# —— VWAP锚定 ——
+VWAP_DEVIATION_THRESHOLD = 2.0  # 价格偏离VWAP超过此%视为远离锚点（均值回归机会）
+
+# —— ORB开盘区间 ——
+ORB_START = (9, 30)    # 开盘区间起始
+ORB_END = (9, 45)      # 开盘区间结束（前15分钟）
+
+# —— 入场信号确认 ——
+CONFIRM_MIN_TOTAL = 3   # 至少满足3个确认条件（含A+B）
+SIGNAL_COOLDOWN_MINUTES = 20      # 同股两次信号最小间隔（分钟）
+SIGNAL_MIN_PRICE_MOVE = 1.5       # 同股两次信号最小价格变动（%）
+FORCE_CLOSE_COOLDOWN = False      # 强制闭环不受冷却限制
+
+# —— 风控参数 ——
+MAX_POSITION_RATIO = 0.25    # 单笔T仓不超过底仓的25%
+MAX_CONCURRENT_POSITIONS = 2  # 最多同时持有未配对T仓的股票数
+HARD_STOP_LOSS = -1.5         # 硬止损：入场价-1.5%
+TIME_STOP_MINUTES = 30        # 时间止损：开仓30分钟未盈利即平仓
+CONSECUTIVE_LOSS_FUSE = 3     # 连续亏损3笔后当日停止开新仓
+
+# ═══════════════════════════════════════════════════
 # 通知配置
 # ═══════════════════════════════════════════════════
 NOTIFICATION_SOUND = True       # 声音提醒（Windows内置，零依赖）
@@ -463,7 +492,561 @@ def fetch_all_data():
     return quotes, techs, funds
 
 # ═══════════════════════════════════════════════════
-# 信号判断
+# 新一代策略引擎：VWAP锚定 + 多信号共振 + 风控
+# ═══════════════════════════════════════════════════
+
+# 全局状态（跨检查周期保留）
+_strategy_state = {
+    "trendCache": {},      # {code: {"trend": "BULL"|"BEAR"|"RANGE", "ma20": float, "ma60": float, "updated": timestamp}}
+    "orbCache": {},        # {code: {"orbHigh": float, "orbLow": float}}
+    "coolingUntil": {},    # {code: "HH:MM"} 冷却期截止时间
+    "consecutiveLosses": 0,  # 全局连续亏损计数
+    "fuseBlown": False,      # 熔断状态
+}
+
+
+def _time_to_minutes(time_str):
+    """将HH:MM转为分钟数"""
+    try:
+        h, m = map(int, time_str.split(":"))
+        return h * 60 + m
+    except Exception:
+        return 0
+
+
+def fetch_minute_data(code):
+    """获取单只股票的日内分时数据（用于VWAP计算）"""
+    return run_cli(["minute", code])
+
+
+def fetch_trend_data(code):
+    """获取单只股票的日线数据（用于趋势判断）"""
+    klines = run_cli(["kline", code, "--freq", "day", "--count", str(TREND_LOOKBACK)])
+    tech_ma = run_cli(["technical", code, "--group", "ma"])
+    
+    result = {"klines": klines or [], "ma20": None, "ma60": None}
+    
+    if tech_ma:
+        t = tech_ma[0] if tech_ma else {}
+        for key, val in t.items():
+            if "ma_20" in key.lower() and val and val != "-":
+                try:
+                    result["ma20"] = float(val)
+                except (ValueError, TypeError):
+                    pass
+            elif "ma_60" in key.lower() and val and val != "-":
+                try:
+                    result["ma60"] = float(val)
+                except (ValueError, TypeError):
+                    pass
+    return result
+
+
+def classify_trend(ma20, ma60, price):
+    """根据均线排列判断趋势
+    
+    Returns:
+        "BULL":  多头排列（MA20 > MA60，价格在两者上方）
+        "BEAR":  空头排列（MA20 < MA60，价格在两者下方）
+        "RANGE": 震荡（均线缠绕，无明显排列）
+    """
+    if ma20 is None or ma60 is None or price is None:
+        return "RANGE"
+    
+    diff_pct = abs(ma20 - ma60) / ma60 * 100
+    
+    if diff_pct < 1.5:
+        # 均线缠绕（差距<1.5%），震荡市
+        return "RANGE"
+    
+    if ma20 > ma60:
+        # 多头排列：MA20在MA60上方
+        if price > ma20:
+            return "BULL"   # 标准多头
+        elif price > ma60:
+            return "BULL"   # 回调但仍在慢线上方，偏多
+        else:
+            return "RANGE"  # 跌穿双线，转入震荡
+    else:
+        # 空头排列：MA20在MA60下方
+        if price < ma20:
+            return "BEAR"   # 标准空头
+        elif price < ma60:
+            return "BEAR"   # 反弹但仍在慢线下方，偏空
+        else:
+            return "RANGE"  # 突破双线，转入震荡
+
+
+def calc_vwap(minute_bars):
+    """从分时数据计算日内VWAP（成交量加权均价）
+    
+    VWAP = Σ(价格 × 成交量) / Σ(成交量)
+    从开盘累计到当前时刻
+    """
+    if not minute_bars:
+        return None
+    
+    total_pv = 0.0   # 价量乘积总和
+    total_vol = 0    # 成交量总和
+    
+    for bar in minute_bars:
+        try:
+            price = float(bar.get("price", 0))
+            volume = float(bar.get("volume", 0))
+        except (ValueError, TypeError):
+            continue
+        if price > 0 and volume > 0:
+            total_pv += price * volume
+            total_vol += volume
+    
+    if total_vol == 0:
+        return None
+    
+    vwap = total_pv / total_vol
+    return round(vwap, 2)
+
+
+def get_orb(code):
+    """获取开盘区间（ORB: Opening Range Breakout）
+    记录09:30-09:45之间的最高价和最低价作为日内关键参考位
+    """
+    global _strategy_state
+    
+    now = datetime.now()
+    h, m = now.hour, now.minute
+    
+    # 09:30-09:45：收集ORB数据
+    bars = fetch_minute_data(code)
+    if not bars:
+        return _strategy_state["orbCache"].get(code, {})
+    
+    orb_high = None
+    orb_low = None
+    for bar in bars:
+        bar_time = str(bar.get("time", "")).strip()
+        try:
+            bar_minutes = int(bar_time[:2]) * 60 + int(bar_time[2:])
+        except (ValueError, IndexError):
+            continue
+        # 只取09:30-09:45的数据
+        if 570 <= bar_minutes <= 585:  # 9*60+30=570, 9*60+45=585
+            try:
+                p = float(bar.get("price", 0))
+            except (ValueError, TypeError):
+                continue
+            if p > 0:
+                if orb_high is None or p > orb_high:
+                    orb_high = p
+                if orb_low is None or p < orb_low:
+                    orb_low = p
+    
+    if orb_high and orb_low:
+        _strategy_state["orbCache"][code] = {"orbHigh": orb_high, "orbLow": orb_low}
+    
+    return _strategy_state["orbCache"].get(code, {})
+
+
+def check_entry_positive(code, quote, vwap, trend, orb):
+    """检查正T（先买后卖）入场信号 - 多信号共振确认
+    
+    必须满足 A(锚点) + B(量价) + 至少1个辅助条件(C~F)
+    
+    Returns:
+        (confirmed, strength, details, entry_zone, stop_loss, target_zone)
+    """
+    confirmed = []
+    
+    # 提取行情数据
+    try:
+        price = float(quote.get("price", 0))
+        high = float(quote.get("high", 0))
+        low = float(quote.get("low", 0))
+        change_pct = float(quote.get("changePercent", quote.get("change_pct", 0)))
+    except (ValueError, TypeError):
+        return False, 0, [], None, None, None
+    
+    if price <= 0:
+        return False, 0, [], None, None, None
+    
+    # ═══ A: VWAP锚点 — 价格在VWAP附近或下方 ═══
+    if vwap and price > 0:
+        vwap_dev = (price - vwap) / vwap * 100
+        if vwap_dev < 0.5:
+            # 价格在VWAP附近或下方，锚点支撑有效
+            confirmed.append(f"VWAP锚点(偏差{vwap_dev:+.2f}%)")
+        # 价格大幅高于VWAP则不满足正T条件
+    
+    # ═══ B: 量价配合 — 缩量止跌 + 放量反弹 ═══
+    volume_ratio = None
+    for key in ["volume_ratio", "volumne_ratio"]:
+        val = quote.get(key)
+        if val and val != "-":
+            try:
+                volume_ratio = float(val)
+                break
+            except (ValueError, TypeError):
+                pass
+    
+    if volume_ratio is not None:
+        if change_pct < 0 and volume_ratio < 0.8:
+            confirmed.append("缩量下跌(抛压小)")
+        elif change_pct > 0 and volume_ratio > 1.0:
+            confirmed.append("放量反弹(动能足)")
+        elif 0.8 <= volume_ratio <= 1.2 and abs(change_pct) < 0.5:
+            confirmed.append("量价平稳")
+    
+    # ═══ C: 趋势一致 ═══
+    if trend in ("BULL", "RANGE"):
+        confirmed.append(f"趋势{trend}(允正T)")
+    
+    # ═══ D: 动量背离 — 价格新低但RSI不新低 ═══
+    dist_to_low = (price - low) / low * 100 if low > 0 else 100
+    if dist_to_low < 0.5:
+        # 价格接近日内低点，检查RSI
+        # 简化判断：接近低点+跌幅收窄=可能的底背离
+        if change_pct > -1.5:
+            confirmed.append("疑似底背离(近低+跌幅收窄)")
+    
+    # ═══ E: 关键位支撑 ═══
+    if orb and orb.get("orbLow"):
+        orb_low = orb["orbLow"]
+        dist_orb = (price - orb_low) / orb_low * 100
+        if 0 < dist_orb < 1.5:
+            confirmed.append(f"ORB下沿支撑(距{dist_orb:.1f}%)")
+    
+    # ═══ F: 时间过滤 ═══
+    now = datetime.now()
+    h, m = now.hour, now.minute
+    # 09:30-09:45 开盘噪音，11:15-13:00 午餐前后
+    if not (h == 9 and m < 45) and not (h == 11 and m >= 15) and not (h == 12):
+        confirmed.append("时间窗口OK")
+    
+    # 计算信号强度
+    strength = len(confirmed)
+    has_core = any("VWAP" in c or "量价" in c for c in confirmed)
+    
+    if strength >= CONFIRM_MIN_TOTAL and has_core:
+        # 计算入场区间、止损、目标
+        entry_zone = f"{round(low * 1.002, 2)}-{round(price, 2)}"
+        stop_loss = round(price * (1 + HARD_STOP_LOSS / 100), 2)
+        target_zone = f"{round(vwap * 1.01, 2)}-{round(high, 2)}" if vwap else f"{round(price * 1.015, 2)}-{round(high, 2)}"
+        return True, strength, confirmed, entry_zone, stop_loss, target_zone
+    
+    return False, strength, confirmed, None, None, None
+
+
+def check_entry_negative(code, quote, vwap, trend, orb):
+    """检查反T（先卖后买）入场信号 - 多信号共振确认"""
+    confirmed = []
+    
+    try:
+        price = float(quote.get("price", 0))
+        high = float(quote.get("high", 0))
+        low = float(quote.get("low", 0))
+        change_pct = float(quote.get("changePercent", quote.get("change_pct", 0)))
+    except (ValueError, TypeError):
+        return False, 0, [], None, None, None
+    
+    if price <= 0:
+        return False, 0, [], None, None, None
+    
+    # ═══ A: VWAP锚点 — 价格在VWAP附近或上方 ═══
+    if vwap and price > 0:
+        vwap_dev = (price - vwap) / vwap * 100
+        if vwap_dev > -0.5:
+            confirmed.append(f"VWAP锚点(偏差{vwap_dev:+.2f}%)")
+    
+    # ═══ B: 量价配合 — 放量滞涨 + 缩量回落 ═══
+    volume_ratio = None
+    for key in ["volume_ratio", "volumne_ratio"]:
+        val = quote.get(key)
+        if val and val != "-":
+            try:
+                volume_ratio = float(val)
+                break
+            except (ValueError, TypeError):
+                pass
+    
+    if volume_ratio is not None:
+        if change_pct > 0 and volume_ratio > 1.5:
+            confirmed.append("放量滞涨(抛压现)")
+        elif change_pct < 0 and volume_ratio < 0.8:
+            confirmed.append("缩量回落(卖压减)")
+    
+    # ═══ C: 趋势一致 ═══
+    if trend in ("BEAR", "RANGE"):
+        confirmed.append(f"趋势{trend}(允反T)")
+    
+    # ═══ D: 动量背离 — 价格新高但RSI不新高 ═══
+    dist_to_high = (high - price) / high * 100 if high > 0 else 100
+    if dist_to_high < 0.5:
+        if change_pct < 1.5:
+            confirmed.append("疑似顶背离(近高+涨幅收窄)")
+    
+    # ═══ E: 关键位压力 ═══
+    if orb and orb.get("orbHigh"):
+        orb_high = orb["orbHigh"]
+        dist_orb = (orb_high - price) / orb_high * 100
+        if 0 < dist_orb < 1.5:
+            confirmed.append(f"ORB上沿压力(距{dist_orb:.1f}%)")
+    
+    # ═══ F: 时间过滤 ═══
+    now = datetime.now()
+    h, m = now.hour, now.minute
+    if not (h == 9 and m < 45) and not (h == 11 and m >= 15) and not (h == 12):
+        confirmed.append("时间窗口OK")
+    
+    strength = len(confirmed)
+    has_core = any("VWAP" in c or "量价" in c for c in confirmed)
+    
+    if strength >= CONFIRM_MIN_TOTAL and has_core:
+        entry_zone = f"{round(price, 2)}-{round(high * 0.998, 2)}"
+        stop_loss = round(price * (1 - HARD_STOP_LOSS / 100), 2)
+        target_zone = f"{round(low, 2)}-{round(vwap * 0.99, 2)}" if vwap else f"{round(low, 2)}-{round(price * 0.985, 2)}"
+        return True, strength, confirmed, entry_zone, stop_loss, target_zone
+    
+    return False, strength, confirmed, None, None, None
+
+
+def format_signal_card(code, name, direction, price, trend, vwap, strength, details, entry_zone, stop_loss, target_zone):
+    """格式化交易信号卡片"""
+    trend_emoji = {"BULL": "🟢", "BEAR": "🔴", "RANGE": "🟡"}
+    trend_names = {"BULL": "多头", "BEAR": "空头", "RANGE": "震荡"}
+    stars = "★" * strength + "☆" * (6 - strength)
+    
+    vwap_str = f"VWAP={vwap}" if vwap else "VWAP=计算中"
+    dev_str = ""
+    if vwap and price:
+        dev = (price - vwap) / vwap * 100
+        dev_str = f" 偏差{dev:+.2f}%"
+    
+    direction_emoji = "🟢" if direction == "positive" else "🔴"
+    direction_name = "正T (先买后卖)" if direction == "positive" else "反T (先卖后买)"
+    
+    details_str = "\n".join(f"  ✅ {d}" for d in details)
+    
+    card = f"""
+╔══════════════════════════════════════╗
+║  ⚠️ T+0 交易提醒 | {now_cst()}            ║
+╠══════════════════════════════════════╣
+║  {name} ({code})                 ║
+║  ──────────────────────────────      ║
+║  趋势：{trend_emoji.get(trend, '⚪')} {trend_names.get(trend, '未知')} | {vwap_str}{dev_str}      ║
+║  策略：{direction_emoji} {direction_name}               ║
+║  ──────────────────────────────      ║
+║  当前价：{price}                        ║
+║  入场区间：{entry_zone or '--'}                  ║
+║  目标区间：{target_zone or '--'}                  ║
+║  止损价：{stop_loss or '--'} (-{abs(HARD_STOP_LOSS)}%)               ║
+║  仓位建议：底仓{int(MAX_POSITION_RATIO*100)}%                      ║
+║  ──────────────────────────────      ║
+║  确认信号：                         ║
+{details_str}                         ║
+║  信号强度：{stars} ({strength}/6)            ║
+║  ──────────────────────────────      ║
+║  ⚠️ 人工确认后执行，盈亏自负       ║
+╚══════════════════════════════════════╝"""
+    return card
+
+
+def check_signal_cooling(code):
+    """检查信号冷却期"""
+    global _strategy_state
+    cool = _strategy_state["coolingUntil"].get(code)
+    if cool:
+        cool_min = _time_to_minutes(cool)
+        now_min = datetime.now().hour * 60 + datetime.now().minute
+        if now_min < cool_min:
+            return True  # 还在冷却期
+    return False
+
+
+def update_signal_cooling(code):
+    """更新信号冷却期"""
+    global _strategy_state
+    now = datetime.now()
+    cool_until = now.hour * 60 + now.minute + SIGNAL_COOLDOWN_MINUTES
+    cool_h = cool_until // 60
+    cool_m = cool_until % 60
+    _strategy_state["coolingUntil"][code] = f"{cool_h:02d}:{cool_m:02d}"
+
+
+def check_risk_limits(signals_data):
+    """检查风控限制
+    
+    Returns:
+        (allowed: bool, reason: str)
+    """
+    global _strategy_state
+    
+    # 熔断检查
+    if _strategy_state.get("fuseBlown"):
+        return False, "熔断中（连续亏损≥3笔）"
+    
+    # 最多2笔未配对检查
+    pending_count = 0
+    for code, state in signals_data.get("stocks", {}).items():
+        if state.get("pendingSignal"):
+            pending_count += 1
+    
+    if pending_count >= MAX_CONCURRENT_POSITIONS:
+        return False, f"已达最大同时开仓数({MAX_CONCURRENT_POSITIONS}笔)"
+    
+    return True, "OK"
+
+
+def process_entry_signal(signals_data, code, direction, price, strength, details, entry_zone, stop_loss, target_zone, vwap, trend):
+    """处理新策略入场信号，写入signals_data"""
+    name = STOCK_NAMES.get(code, code)
+    time_str = now_cst()
+    
+    # 防止自我配对
+    stock_state = signals_data.setdefault("stocks", {}).setdefault(code, {
+        "name": name,
+        "completedRounds": [],
+        "pendingSignal": None,
+        "allSignals": [],
+    })
+    
+    pending = stock_state.get("pendingSignal")
+    
+    if pending:
+        existing_type = pending["signalType"]
+        
+        # 反向信号：配对成功
+        if existing_type != direction:
+            pair = _create_pair(pending, direction, price, time_str)
+            if pair and pair.get("spread", 0) > MIN_SPREAD:
+                stock_state["completedRounds"].append(pair)
+                signals_data.setdefault("completedPairs", []).append({
+                    "stock": name, "code": code, **pair
+                })
+                stock_state["pendingSignal"] = None
+                
+                # 重置该股票冷却期
+                _strategy_state["coolingUntil"].pop(code, None)
+                
+                msg = (
+                    f"  [✅ 配对成功] {name}({code})\n"
+                    f"    第{pair['round']}轮{pair['type']}: "
+                    f"{pair.get('buyTime','')}@{pair.get('buyPrice','')} → {pair.get('sellTime','')}@{pair.get('sellPrice','')}\n"
+                    f"    差价：{pair['spread']:+.2f}% | 净收益：{pair['netReturn']:+.2f}%"
+                )
+                log(f"配对成功: {name} {pair['type']}第{pair['round']}轮 +{pair['netReturn']:.2f}%")
+                
+                # 亏损检查
+                if pair["netReturn"] < 0:
+                    _strategy_state["consecutiveLosses"] += 1
+                    if _strategy_state["consecutiveLosses"] >= CONSECUTIVE_LOSS_FUSE:
+                        _strategy_state["fuseBlown"] = True
+                        msg += f"\n  ⚠️ 连续亏损{_strategy_state['consecutiveLosses']}笔，触发熔断！今日停止开新仓"
+                else:
+                    _strategy_state["consecutiveLosses"] = 0
+                
+                return msg
+        
+        # 同向信号：价格更优时提醒
+        else:
+            if direction == "low" and price < pending["price"]:
+                old_price = pending["price"]
+                pending["price"] = price
+                pending["time"] = time_str
+                improvement = (old_price - price) / old_price * 100
+                return (
+                    f"  [⚠️ 更优低吸价] {name}({code})\n"
+                    f"    已有正T第1笔低吸@{old_price} → 现价{price}更低(-{improvement:.2f}%)\n"
+                    f"    💡 如已买入，建议调整止损至{price * (1 + HARD_STOP_LOSS/100):.2f}"
+                )
+            elif direction == "high" and price > pending["price"]:
+                old_price = pending["price"]
+                pending["price"] = price
+                pending["time"] = time_str
+                improvement = (price - old_price) / old_price * 100
+                return (
+                    f"  [⚠️ 更优高抛价] {name}({code})\n"
+                    f"    已有反T第1笔高抛@{old_price} → 现价{price}更高(+{improvement:.2f}%)\n"
+                    f"    💡 如已卖出，建议调整回补位至{price * (1 - HARD_STOP_LOSS/100):.2f}"
+                )
+            else:
+                return f"  [忽略] {name}({code}) 同向信号价格未优于已有记录"
+    
+    # 新开仓：写入pending信号
+    else:
+        round_num = len(stock_state.get("completedRounds", [])) + 1
+        t_type = "正T" if direction == "low" else "反T"
+        
+        signal = {
+            "round": round_num,
+            "type": t_type,
+            "signalType": direction,
+            "time": time_str,
+            "price": price,
+            "entryZone": entry_zone,
+            "stopLoss": stop_loss,
+            "targetZone": target_zone,
+            "strength": strength,
+            "details": details,
+            "vwap": vwap,
+            "trend": trend,
+        }
+        
+        stock_state["pendingSignal"] = signal
+        _strategy_state["coolingUntil"][code] = _compute_cooling_until()
+        
+        card = format_signal_card(
+            code, name, 
+            "positive" if direction == "low" else "negative",
+            price, trend, vwap, strength, details,
+            entry_zone, stop_loss, target_zone
+        )
+        
+        log(f"新信号: {name} {t_type}第{round_num}轮 {'低吸' if direction=='low' else '高抛'}@{price} 强度{strength}/6")
+        
+        return card
+
+
+def _compute_cooling_until():
+    """计算冷却截止时间"""
+    now = datetime.now()
+    cool_until = now.hour * 60 + now.minute + SIGNAL_COOLDOWN_MINUTES
+    return f"{cool_until // 60:02d}:{cool_until % 60:02d}"
+
+
+def _create_pair(pending, direction, price, time_str):
+    """创建配对记录"""
+    if pending["signalType"] == "low" and direction == "high":
+        # 正T配对：低吸→高抛
+        spread = (price - pending["price"]) / pending["price"] * 100
+        net = spread - ROUND_TRIP_COST * 100
+        return {
+            "round": pending["round"],
+            "type": "正T",
+            "buyTime": pending["time"],
+            "buyPrice": pending["price"],
+            "sellTime": time_str,
+            "sellPrice": price,
+            "spread": round(spread, 2),
+            "netReturn": round(net, 2),
+        }
+    elif pending["signalType"] == "high" and direction == "low":
+        # 反T配对：高抛→低吸
+        spread = (pending["price"] - price) / pending["price"] * 100
+        net = spread - ROUND_TRIP_COST * 100
+        return {
+            "round": pending["round"],
+            "type": "反T",
+            "sellTime": pending["time"],
+            "sellPrice": pending["price"],
+            "buyTime": time_str,
+            "buyPrice": price,
+            "spread": round(spread, 2),
+            "netReturn": round(net, 2),
+        }
+    return None
+
+
+# ═══════════════════════════════════════════════════
+# 信号判断（旧版，保留用于强制闭环时的简化判断）
 # ═══════════════════════════════════════════════════
 
 def check_low_signal(quote, tech, fund):
@@ -1059,11 +1642,29 @@ def run_check(force=False):
     phase, min_conditions = get_trading_phase()
     log(f"  当前阶段: {phase} (最低条件数: {min_conditions})")
 
-    output_lines = [f"\n🎯 T+0交易信号 | {now_cst()} | 阶段:{phase}"]
+    output_lines = [f"\n🎯 T+0交易信号 | {now_cst()} | 阶段:{phase} | 策略:VWAP共振"]
     has_signal = False
-    signaled_codes = set()  # 本轮已触发信号的股票，防止同时触发低吸+高抛自我配对
 
-    # ═══ 阶段1: 正常信号检查（所有阶段都做） ═══
+    # ═══ 阶段0: 获取策略数据（VWAP、趋势、ORB） ═══
+    # 批量获取技术面MA数据（一行拉所有）
+    all_ma = run_cli(["technical", ",".join(ALL_CODES), "--group", "ma"])
+    ma_map = {}
+    if all_ma:
+        for item in all_ma:
+            code = item.get("code", "")
+            if code:
+                ma_map[code] = item
+
+    # ORB仅在09:45第一次计算
+    now = datetime.now()
+    if now.hour == 9 and now.minute >= 45 and not _strategy_state["orbCache"]:
+        log("  计算ORB开盘区间(09:30-09:45)...")
+        for code in ALL_CODES:
+            if code in T0_DISABLED:
+                continue
+            get_orb(code)
+
+    # ═══ 阶段1: 新策略引擎 — VWAP锚定+多信号共振 ═══
     for code in ALL_CODES:
         # T+0禁用标的：只记录行情，不触发信号
         if code in T0_DISABLED:
@@ -1076,7 +1677,6 @@ def run_check(force=False):
         if not quote:
             continue
 
-        # 提取关键数据
         try:
             price = float(quote.get("price", quote.get("currentPrice", 0)))
             low = float(quote.get("low", quote.get("todayLow", 0)))
@@ -1088,43 +1688,116 @@ def run_check(force=False):
         if price <= 0:
             continue
 
-        amplitude = (high - low) / low * 100 if low > 0 else 0
+        # 信号冷却检查
+        if check_signal_cooling(code):
+            continue
 
-        # 检查是否有未配对仓位
-        stock_state = get_stock_state(signals_data, code)
-        pending = stock_state.get("pendingSignal")
+        # 风控限制检查
+        risk_ok, risk_reason = check_risk_limits(signals_data)
+        if not risk_ok:
+            if _strategy_state.get("fuseBlown") and not hasattr(run_check, '_fuse_reported'):
+                output_lines.append(f"  🛑 风控熔断：{risk_reason}")
+                run_check._fuse_reported = True
+            continue
 
+        # 获取趋势数据
+        ma_data = ma_map.get(code, {})
+        ma20 = None
+        ma60 = None
+        if ma_data:
+            for key, val in ma_data.items():
+                if "ma_20" in key.lower() and val and val != "-":
+                    try:
+                        ma20 = float(val)
+                    except (ValueError, TypeError):
+                        pass
+                elif "ma_60" in key.lower() and val and val != "-":
+                    try:
+                        ma60 = float(val)
+                    except (ValueError, TypeError):
+                        pass
+        
+        trend = classify_trend(ma20, ma60, price)
+
+        # 获取VWAP
+        minute_bars = fetch_minute_data(code)
+        vwap = calc_vwap(minute_bars)
+
+        # ORB
+        orb = _strategy_state["orbCache"].get(code, {})
+
+        # 根据趋势确定主策略方向
         if phase in ("normal", "active", "forceclose"):
-            # 根据阶段决定门槛
-            if phase == "normal":
-                threshold = 2  # 精选模式
-            elif phase == "active":
-                # 主动寻配：有未配对仓位的，反向信号门槛降为1
-                if pending:
-                    threshold = 1
-                else:
-                    threshold = 2  # 无仓位的仍用正常门槛
-            else:  # forceclose
-                threshold = 1  # 强制收尾，门槛最低
-
-            # 检查低吸信号
-            low_cond, low_details = check_low_signal(quote, tech, fund)
-            if low_cond >= threshold:
-                rating_int, rating_str = calc_rating(amplitude)
-                msg = process_signal(signals_data, code, "low", price, rating_int, low_details, amplitude)
-                signaled_codes.add(code)
-                output_lines.append(msg)
-                has_signal = True
-
-            # 检查高抛信号（本轮已触发信号的不再检查，防止自我配对）
-            if code not in signaled_codes:
-                high_cond, high_details = check_high_signal(quote, tech, fund)
-                if high_cond >= threshold:
-                    rating_int, rating_str = calc_rating(amplitude)
-                    msg = process_signal(signals_data, code, "high", price, rating_int, high_details, amplitude)
-                    signaled_codes.add(code)
+            # 精选/主动寻配阶段：趋势决定策略偏好
+            if trend == "BULL":
+                # 多头：只做正T（低吸），禁用反T
+                positive_ok, pos_strength, pos_details, pos_entry, pos_stop, pos_target = \
+                    check_entry_positive(code, quote, vwap, trend, orb)
+                if positive_ok:
+                    update_signal_cooling(code)
+                    msg = process_entry_signal(signals_data, code, "low", price, pos_strength, 
+                                                pos_details, pos_entry, pos_stop, pos_target, vwap, trend)
                     output_lines.append(msg)
                     has_signal = True
+            
+            elif trend == "BEAR":
+                # 空头：只做反T（高抛），禁用正T
+                negative_ok, neg_strength, neg_details, neg_entry, neg_stop, neg_target = \
+                    check_entry_negative(code, quote, vwap, trend, orb)
+                if negative_ok:
+                    update_signal_cooling(code)
+                    msg = process_entry_signal(signals_data, code, "high", price, neg_strength,
+                                                neg_details, neg_entry, neg_stop, neg_target, vwap, trend)
+                    output_lines.append(msg)
+                    has_signal = True
+            
+            else:  # RANGE
+                # 震荡：正T反T均可，优先检查未配对仓位的反向信号
+                stock_state = get_stock_state(signals_data, code)
+                pending = stock_state.get("pendingSignal")
+                
+                if pending:
+                    # 有未配对仓位：只检查反向信号
+                    if pending["signalType"] == "low":
+                        # 已有低吸，等高抛
+                        negative_ok, neg_strength, neg_details, neg_entry, neg_stop, neg_target = \
+                            check_entry_negative(code, quote, vwap, trend, orb)
+                        if negative_ok:
+                            update_signal_cooling(code)
+                            msg = process_entry_signal(signals_data, code, "high", price, neg_strength,
+                                                        neg_details, neg_entry, neg_stop, neg_target, vwap, trend)
+                            output_lines.append(msg)
+                            has_signal = True
+                    else:
+                        # 已有高抛，等低吸
+                        positive_ok, pos_strength, pos_details, pos_entry, pos_stop, pos_target = \
+                            check_entry_positive(code, quote, vwap, trend, orb)
+                        if positive_ok:
+                            update_signal_cooling(code)
+                            msg = process_entry_signal(signals_data, code, "low", price, pos_strength,
+                                                        pos_details, pos_entry, pos_stop, pos_target, vwap, trend)
+                            output_lines.append(msg)
+                            has_signal = True
+                else:
+                    # 无仓位：两个方向都检查
+                    positive_ok, pos_strength, pos_details, pos_entry, pos_stop, pos_target = \
+                        check_entry_positive(code, quote, vwap, trend, orb)
+                    if positive_ok:
+                        update_signal_cooling(code)
+                        msg = process_entry_signal(signals_data, code, "low", price, pos_strength,
+                                                    pos_details, pos_entry, pos_stop, pos_target, vwap, trend)
+                        output_lines.append(msg)
+                        has_signal = True
+                    
+                    if not positive_ok:
+                        negative_ok, neg_strength, neg_details, neg_entry, neg_stop, neg_target = \
+                            check_entry_negative(code, quote, vwap, trend, orb)
+                        if negative_ok:
+                            update_signal_cooling(code)
+                            msg = process_entry_signal(signals_data, code, "high", price, neg_strength,
+                                                        neg_details, neg_entry, neg_stop, neg_target, vwap, trend)
+                            output_lines.append(msg)
+                            has_signal = True
 
     # ═══ 阶段2: 强制闭环逻辑（14:30之后） ═══
     if phase in ("forceclose", "hardclose"):
@@ -1135,6 +1808,36 @@ def run_check(force=False):
 
     # 今日T+0全景
     panorama = ["\n  【📋 今日T+0全景】"]
+    
+    # 策略状态概览
+    trend_count = {"BULL": 0, "BEAR": 0, "RANGE": 0}
+    for code in ALL_CODES:
+        if code in T0_DISABLED:
+            continue
+        ma_data = ma_map.get(code, {})
+        ma20 = ma60 = None
+        if ma_data:
+            for key, val in ma_data.items():
+                if "ma_20" in key.lower() and val and val != "-":
+                    try: ma20 = float(val)
+                    except: pass
+                elif "ma_60" in key.lower() and val and val != "-":
+                    try: ma60 = float(val)
+                    except: pass
+        quote = quotes.get(code, {})
+        try:
+            px = float(quote.get("price", 0))
+        except:
+            px = None
+        t = classify_trend(ma20, ma60, px)
+        trend_count[t] = trend_count.get(t, 0) + 1
+    
+    fuse_str = "🛑熔断" if _strategy_state.get("fuseBlown") else "✅正常"
+    loss_str = f"连亏{_strategy_state['consecutiveLosses']}笔" if _strategy_state["consecutiveLosses"] > 0 else ""
+    panorama.append(f"  趋势分布: 🟢多头{trend_count.get('BULL',0)}只 | 🔴空头{trend_count.get('BEAR',0)}只 | 🟡震荡{trend_count.get('RANGE',0)}只")
+    panorama.append(f"  风控状态: {fuse_str} {loss_str} | 冷却中: {len(_strategy_state['coolingUntil'])}只 | 未配对: {sum(1 for s in signals_data.get('stocks',{}).values() if s.get('pendingSignal'))}笔")
+    panorama.append("")
+    
     for code in ALL_CODES:
         name = STOCK_NAMES.get(code, code)
         if code in T0_DISABLED:
@@ -1142,7 +1845,23 @@ def run_check(force=False):
             continue
         state = signals_data["stocks"].get(code)
         if not state:
-            panorama.append(f"    {name}: 无信号")
+            # 无信号但有趋势信息
+            ma_data_item = ma_map.get(code, {})
+            ma20 = ma60 = None
+            if ma_data_item:
+                for key, val in ma_data_item.items():
+                    if "ma_20" in key.lower() and val and val != "-":
+                        try: ma20 = float(val)
+                        except: pass
+                    elif "ma_60" in key.lower() and val and val != "-":
+                        try: ma60 = float(val)
+                        except: pass
+            q = quotes.get(code, {})
+            try: px = float(q.get("price", 0))
+            except: px = None
+            t = classify_trend(ma20, ma60, px)
+            trend_icon = {"BULL": "🟢", "BEAR": "🔴", "RANGE": "🟡"}.get(t, "⚪")
+            panorama.append(f"    {name}: {trend_icon}{t} 无信号")
             continue
 
         parts = []
@@ -1154,7 +1873,9 @@ def run_check(force=False):
         if pending:
             leg_desc = "低吸" if pending["signalType"] == "low" else "高抛"
             elapsed = _minutes_since(pending["time"])
-            parts.append(f"⏳第{pending['round']}轮{pending['type']}等待配对({pending['time']}{leg_desc}@{pending['price']} 已等{elapsed}分钟)")
+            trend_info = f"|趋势{pending.get('trend','?')}" if pending.get('trend') else ""
+            strength_stars = "★" * pending.get('strength', 0) if pending.get('strength') else ""
+            parts.append(f"⏳第{pending['round']}轮{pending['type']}等待配对({pending['time']}{leg_desc}@{pending['price']} 已等{elapsed}分钟{trend_info}{strength_stars})")
 
         if parts:
             panorama.append(f"    {name}: {' | '.join(parts)}")
@@ -1172,10 +1893,10 @@ def run_check(force=False):
         for line in output_lines:
             print(line)
     else:
-        print(f"✅ T+0盯盘 | 15只标的均无信号 | {now_cst()} | 阶段:{phase}")
+        print(f"✅ T+0盯盘 | 策略:VWAP共振 | {now_cst()} | 阶段:{phase} | 🟢{trend_count.get('BULL',0)}只多头 🔴{trend_count.get('BEAR',0)}只空头 🟡{trend_count.get('RANGE',0)}只震荡")
 
     # 写入心跳
-    write_heartbeat(0, has_signal, len(signaled_codes), len(quotes))
+    write_heartbeat(0, has_signal, 0, len(quotes))
 
     # 生成仪表盘HTML
     _generate_dashboard()
@@ -1306,6 +2027,11 @@ def print_daily_report(data):
     print(f"\n{'='*50}")
     print(f"📊 T+0 盯盘日报 | {today_str()}")
     print(f"{'='*50}")
+    print(f"\n═══ 策略概况 ═══")
+    print(f"策略引擎：VWAP锚定 + 多信号共振 (v2.0)")
+    print(f"信号冷却：{SIGNAL_COOLDOWN_MINUTES}分钟 | 单笔仓位：底仓{int(MAX_POSITION_RATIO*100)}% | 硬止损：{HARD_STOP_LOSS}%")
+    fuse = "🛑已熔断" if _strategy_state.get("fuseBlown") else "✅正常"
+    print(f"风控状态：{fuse} | 连续亏损：{_strategy_state.get('consecutiveLosses', 0)}笔")
     print(f"\n═══ 今日T+0战绩 ═══")
     print(f"完成T+0轮次：{total_pairs} 轮")
     print(f"今日预估T+0总收益：+{total_return:.2f}%（扣费后）")
