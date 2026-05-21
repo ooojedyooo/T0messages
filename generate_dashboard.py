@@ -144,7 +144,7 @@ def generate_html():
 const ALL_CODES = {json.dumps(ALL_CODES)};
 const STOCK_NAMES = {json.dumps(STOCK_NAMES, ensure_ascii=False)};
 const T0_DISABLED = new Set({json.dumps(list(T0_DISABLED))});
-const DATA_DIR = "./";  // dashboard.html 与 JSON 在同一目录 (data/)
+const DATA_URL = "http://localhost:8899/";  // 微静态服务器
 const REFRESH_SEC = 30;
 
 // ═══════════════════════════════════════
@@ -152,7 +152,7 @@ const REFRESH_SEC = 30;
 // ═══════════════════════════════════════
 async function fetchJSON(filename) {{
   try {{
-    const resp = await fetch(DATA_DIR + filename + "?t=" + Date.now());
+    const resp = await fetch(DATA_URL + filename + "?t=" + Date.now());
     if (!resp.ok) return null;
     return await resp.json();
   }} catch(e) {{ return null; }}

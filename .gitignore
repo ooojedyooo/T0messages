@@ -6,6 +6,7 @@ data/t0-heartbeat.json
 data/t0-snapshot.json
 data/reports/
 data/dashboard.html
+data/_server.py
 data/holidays.txt
 
 # Python

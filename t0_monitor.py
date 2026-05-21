@@ -1604,7 +1604,11 @@ def write_snapshot(quotes, techs, funds):
         pass
 
 def _generate_dashboard():
-    """生成静态仪表盘HTML，供浏览器直接打开查看"""
+    """生成静态仪表盘HTML + 确保微静态服务器运行（端口8899）"""
+    # 启动微静态文件服务器（如未运行）
+    _ensure_data_server()
+    
+    # 生成仪表盘HTML
     try:
         script_path = os.path.join(_SCRIPT_DIR, "generate_dashboard.py")
         if os.path.exists(script_path):
@@ -1614,6 +1618,25 @@ def _generate_dashboard():
             )
     except Exception:
         pass
+
+
+def _ensure_data_server():
+    """确保 data/ 目录的微静态HTTP服务器在端口8899运行"""
+    import socket
+    s = socket.socket()
+    port_in_use = s.connect_ex(('127.0.0.1', 8899)) == 0
+    s.close()
+    if port_in_use:
+        return  # 已经在运行
+    
+    # 后台启动 http.server，cwd 指定为 data/ 目录
+    subprocess.Popen(
+        [sys.executable, '-m', 'http.server', '8899'],
+        cwd=DATA_DIR,
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+    )
+    log("  微静态服务器已启动: http://localhost:8899")
 
 def run_check(force=False):
     """执行一次完整的T+0信号检查。force=True时忽略交易时段限制（用于收盘日报）"""
