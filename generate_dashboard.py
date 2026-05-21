@@ -15,7 +15,6 @@ from datetime import datetime
 
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(_SCRIPT_DIR, "data")
-REPORTS_DIR = os.path.join(DATA_DIR, "reports")
 OUTPUT_HTML = os.path.join(DATA_DIR, "dashboard.html")
 
 STOCK_NAMES = {
@@ -30,7 +29,7 @@ T0_DISABLED = {"sz002594"}  # 比亚迪仅监控
 
 
 def generate_html():
-    os.makedirs(REPORTS_DIR, exist_ok=True)
+    os.makedirs(DATA_DIR, exist_ok=True)
 
     html = f'''<!DOCTYPE html>
 <html lang="zh-CN">
