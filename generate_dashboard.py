@@ -16,7 +16,7 @@ from datetime import datetime
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(_SCRIPT_DIR, "data")
 REPORTS_DIR = os.path.join(DATA_DIR, "reports")
-OUTPUT_HTML = os.path.join(REPORTS_DIR, "dashboard.html")
+OUTPUT_HTML = os.path.join(DATA_DIR, "dashboard.html")
 
 STOCK_NAMES = {
     "sz002594": "比亚迪", "sz300750": "宁德时代", "sh688041": "海光信息",
@@ -144,7 +144,7 @@ def generate_html():
 const ALL_CODES = {json.dumps(ALL_CODES)};
 const STOCK_NAMES = {json.dumps(STOCK_NAMES, ensure_ascii=False)};
 const T0_DISABLED = new Set({json.dumps(list(T0_DISABLED))});
-const DATA_DIR = "../";  // HTML在 data/reports/ 下，JSON在 data/ 下
+const DATA_DIR = "./";  // dashboard.html 与 JSON 在同一目录 (data/)
 const REFRESH_SEC = 30;
 
 // ═══════════════════════════════════════
