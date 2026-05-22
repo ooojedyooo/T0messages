@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>T+0 盯盘日报 | 2026-05-22</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, 'Microsoft YaHei', 'PingFang SC', sans-serif; background: #0d1117; color: #c9d1d9; padding: 20px; }
+  .container { max-width: 1000px; margin: 0 auto; }
+  h1 { text-align: center; color: #58a6ff; margin-bottom: 5px; font-size: 26px; }
+  .date { text-align: center; color: #8b949e; margin-bottom: 30px; font-size: 14px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 30px; }
+  .card { background: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 18px; text-align: center; }
+  .card .label { font-size: 12px; color: #8b949e; margin-bottom: 6px; }
+  .card .value { font-size: 28px; font-weight: bold; }
+  .positive { color: #3fb950; }
+  .negative { color: #f85149; }
+  .neutral { color: #58a6ff; }
+  h2 { color: #58a6ff; margin: 30px 0 15px; font-size: 18px; border-bottom: 1px solid #30363d; padding-bottom: 8px; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13px; }
+  th { background: #161b22; color: #8b949e; padding: 10px; text-align: left; border-bottom: 2px solid #30363d; white-space: nowrap; }
+  td { padding: 8px 10px; border-bottom: 1px solid #21262d; }
+  tr:hover { background: #161b22; }
+  .bar-row { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
+  .bar-label { width: 80px; text-align: right; font-size: 13px; flex-shrink: 0; }
+  .bar-track { flex: 1; height: 22px; background: #21262d; border-radius: 4px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
+  .bar-fill.positive { background: linear-gradient(90deg, #238636, #3fb950); }
+  .bar-fill.negative { background: linear-gradient(90deg, #da3633, #f85149); }
+  .bar-value { width: 70px; font-size: 13px; font-weight: bold; }
+  .warning-box { background: #1c1204; border: 1px solid #9e6a03; border-radius: 10px; padding: 18px; margin: 20px 0; }
+  .warning-box h3 { color: #d29922; margin-bottom: 10px; font-size: 15px; }
+  .warning-box p { color: #e3b341; font-size: 13px; margin: 5px 0; }
+  .info-box { background: #0c1929; border: 1px solid #1f6feb; border-radius: 10px; padding: 18px; margin: 20px 0; }
+  .info-box h3 { color: #58a6ff; margin-bottom: 10px; font-size: 15px; }
+  .info-box p { color: #8b949e; font-size: 13px; }
+  .signal-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 15px 0; }
+  .signal-stats .stat { background: #161b22; padding: 12px; border-radius: 8px; text-align: center; }
+  .signal-stats .stat .label { font-size: 12px; color: #8b949e; }
+  .signal-stats .stat .value { font-size: 20px; font-weight: bold; color: #58a6ff; }
+  .signal-low { border-left: 3px solid #3fb950; }
+  .signal-high { border-left: 3px solid #f85149; }
+  .footer { text-align: center; color: #484f58; font-size: 12px; margin-top: 40px; padding-top: 20px; border-top: 1px solid #21262d; }
+  .cost-note { color: #8b949e; font-size: 13px; margin: 10px 0; padding: 10px; background: #161b22; border-radius: 6px; }
+  @media (max-width: 600px) { .cards { grid-template-columns: repeat(2, 1fr); } body { padding: 10px; } }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>T+0 盯盘日报</h1>
+  <div class="date">2026-05-22 | 佣金万一+印花税万五=往返0.07%</div>
+
+  <div class="cards">
+    <div class="card">
+      <div class="label">完成轮次</div>
+      <div class="value neutral">8</div>
+    </div>
+    <div class="card">
+      <div class="label">预估总收益（扣费后）</div>
+      <div class="value positive">+6.83%</div>
+    </div>
+    <div class="card">
+      <div class="label">胜率</div>
+      <div class="value negative">25%</div>
+    </div>
+    <div class="card">
+      <div class="label">平均每笔</div>
+      <div class="value positive">+0.85%</div>
+    </div>
+  </div>
+
+  <h2>📈 个股收益排行</h2>
+  
+            <div class="bar-row">
+                <span class="bar-label">新易盛</span>
+                <div class="bar-track"><div class="bar-fill positive" style="width:100.0%"></div></div>
+                <span class="bar-value positive">+5.06%</span>
+            </div>
+            <div class="bar-row">
+                <span class="bar-label">厦钨新能</span>
+                <div class="bar-track"><div class="bar-fill positive" style="width:43.280632411067195%"></div></div>
+                <span class="bar-value positive">+2.19%</span>
+            </div>
+            <div class="bar-row">
+                <span class="bar-label">宁德时代</span>
+                <div class="bar-track"><div class="bar-fill negative" style="width:1.3833992094861662%"></div></div>
+                <span class="bar-value negative">-0.07%</span>
+            </div>
+            <div class="bar-row">
+                <span class="bar-label">海光信息</span>
+                <div class="bar-track"><div class="bar-fill negative" style="width:1.3833992094861662%"></div></div>
+                <span class="bar-value negative">-0.07%</span>
+            </div>
+            <div class="bar-row">
+                <span class="bar-label">中际旭创</span>
+                <div class="bar-track"><div class="bar-fill negative" style="width:1.3833992094861662%"></div></div>
+                <span class="bar-value negative">-0.07%</span>
+            </div>
+            <div class="bar-row">
+                <span class="bar-label">杰普特</span>
+                <div class="bar-track"><div class="bar-fill negative" style="width:1.3833992094861662%"></div></div>
+                <span class="bar-value negative">-0.07%</span>
+            </div>
+            <div class="bar-row">
+                <span class="bar-label">福晶科技</span>
+                <div class="bar-track"><div class="bar-fill negative" style="width:1.3833992094861662%"></div></div>
+                <span class="bar-value negative">-0.07%</span>
+            </div>
+            <div class="bar-row">
+                <span class="bar-label">通富微电</span>
+                <div class="bar-track"><div class="bar-fill negative" style="width:1.3833992094861662%"></div></div>
+                <span class="bar-value negative">-0.07%</span>
+            </div>
+
+  <h2>📋 交易明细（已配对）</h2>
+  <table>
+    <tr><th>股票</th><th>轮次</th><th>类型</th><th>买入时间</th><th>买入价</th><th>卖出时间</th><th>卖出价</th><th>差价</th><th>净收益</th></tr>
+    
+            <tr>
+                <td>新易盛 ⚡强平</td>
+                <td>第1轮</td>
+                <td>正T</td>
+                <td>09:35</td>
+                <td>579.0</td>
+                <td>14:32</td>
+                <td>608.69</td>
+                <td>+5.13%</td>
+                <td class="positive">+5.06%</td>
+            </tr>
+            <tr>
+                <td>厦钨新能 ⚡强平</td>
+                <td>第1轮</td>
+                <td>正T</td>
+                <td>09:35</td>
+                <td>68.64</td>
+                <td>14:32</td>
+                <td>70.19</td>
+                <td>+2.26%</td>
+                <td class="positive">+2.19%</td>
+            </tr>
+            <tr>
+                <td>宁德时代 ⚡强平</td>
+                <td>第1轮</td>
+                <td>正T</td>
+                <td>14:37</td>
+                <td>411.44</td>
+                <td>14:37</td>
+                <td>411.44</td>
+                <td>0.00%</td>
+                <td class="negative">-0.07%</td>
+            </tr>
+            <tr>
+                <td>海光信息 ⚡强平</td>
+                <td>第1轮</td>
+                <td>正T</td>
+                <td>14:37</td>
+                <td>311.83</td>
+                <td>14:37</td>
+                <td>311.83</td>
+                <td>0.00%</td>
+                <td class="negative">-0.07%</td>
+            </tr>
+            <tr>
+                <td>中际旭创 ⚡强平</td>
+                <td>第1轮</td>
+                <td>正T</td>
+                <td>14:42</td>
+                <td>1038.18</td>
+                <td>14:42</td>
+                <td>1038.18</td>
+                <td>0.00%</td>
+                <td class="negative">-0.07%</td>
+            </tr>
+            <tr>
+                <td>杰普特 ⚡强平</td>
+                <td>第1轮</td>
+                <td>正T</td>
+                <td>14:42</td>
+                <td>449.27</td>
+                <td>14:42</td>
+                <td>449.27</td>
+                <td>0.00%</td>
+                <td class="negative">-0.07%</td>
+            </tr>
+            <tr>
+                <td>福晶科技 ⚡强平</td>
+                <td>第1轮</td>
+                <td>正T</td>
+                <td>14:47</td>
+                <td>105.68</td>
+                <td>14:47</td>
+                <td>105.68</td>
+                <td>0.00%</td>
+                <td class="negative">-0.07%</td>
+            </tr>
+            <tr>
+                <td>通富微电 ⚡强平</td>
+                <td>第1轮</td>
+                <td>正T</td>
+                <td>14:47</td>
+                <td>63.55</td>
+                <td>14:47</td>
+                <td>63.55</td>
+                <td>0.00%</td>
+                <td class="negative">-0.07%</td>
+            </tr>
+  </table>
+
+  
+  
+    <div class="info-box">
+        <h3>💤 无信号股票</h3>
+        <p>比亚迪、聚和材料、迈威生物、江苏雷利、先导智能、东材科技、亿纬锂能</p>
+    </div>
+
+  <h2>📊 信号统计</h2>
+  <div class="signal-stats">
+    <div class="stat"><div class="label">低吸信号</div><div class="value">0次</div></div>
+    <div class="stat"><div class="label">高抛信号</div><div class="value">0次</div></div>
+    <div class="stat"><div class="label">配对成功率</div><div class="value">800%</div></div>
+    <div class="stat"><div class="label">盈利/亏损</div><div class="value">2/6</div></div>
+  </div>
+
+  <h2>🕐 全部信号时间线</h2>
+  <table>
+    <tr><th>时间</th><th>方向</th><th>股票</th><th>价格</th><th>触发条件</th><th>振幅</th></tr>
+    <tr><td colspan="6" style="text-align:center;color:#484f58;">今日无信号</td></tr>
+  </table>
+
+  <div class="cost-note">
+    💰 交易成本：佣金万一（双向）+ 印花税万五（卖出单边）= 往返0.07% | 净收益已扣除全部交易成本 | 净收益目标>0.6%/笔
+  </div>
+
+  <div class="footer">
+    T+0 日内盯盘系统 | 数据来源：westock-data | 仅供参考，不构成投资建议
+  </div>
+</div>
+</body>
+</html>

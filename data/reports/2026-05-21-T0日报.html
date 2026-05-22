@@ -1,0 +1,1283 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>T+0 盯盘日报 | 2026-05-21</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, 'Microsoft YaHei', 'PingFang SC', sans-serif; background: #0d1117; color: #c9d1d9; padding: 20px; }
+  .container { max-width: 1000px; margin: 0 auto; }
+  h1 { text-align: center; color: #58a6ff; margin-bottom: 5px; font-size: 26px; }
+  .date { text-align: center; color: #8b949e; margin-bottom: 30px; font-size: 14px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 30px; }
+  .card { background: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 18px; text-align: center; }
+  .card .label { font-size: 12px; color: #8b949e; margin-bottom: 6px; }
+  .card .value { font-size: 28px; font-weight: bold; }
+  .positive { color: #3fb950; }
+  .negative { color: #f85149; }
+  .neutral { color: #58a6ff; }
+  h2 { color: #58a6ff; margin: 30px 0 15px; font-size: 18px; border-bottom: 1px solid #30363d; padding-bottom: 8px; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13px; }
+  th { background: #161b22; color: #8b949e; padding: 10px; text-align: left; border-bottom: 2px solid #30363d; white-space: nowrap; }
+  td { padding: 8px 10px; border-bottom: 1px solid #21262d; }
+  tr:hover { background: #161b22; }
+  .bar-row { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
+  .bar-label { width: 80px; text-align: right; font-size: 13px; flex-shrink: 0; }
+  .bar-track { flex: 1; height: 22px; background: #21262d; border-radius: 4px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
+  .bar-fill.positive { background: linear-gradient(90deg, #238636, #3fb950); }
+  .bar-fill.negative { background: linear-gradient(90deg, #da3633, #f85149); }
+  .bar-value { width: 70px; font-size: 13px; font-weight: bold; }
+  .warning-box { background: #1c1204; border: 1px solid #9e6a03; border-radius: 10px; padding: 18px; margin: 20px 0; }
+  .warning-box h3 { color: #d29922; margin-bottom: 10px; font-size: 15px; }
+  .warning-box p { color: #e3b341; font-size: 13px; margin: 5px 0; }
+  .info-box { background: #0c1929; border: 1px solid #1f6feb; border-radius: 10px; padding: 18px; margin: 20px 0; }
+  .info-box h3 { color: #58a6ff; margin-bottom: 10px; font-size: 15px; }
+  .info-box p { color: #8b949e; font-size: 13px; }
+  .signal-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 15px 0; }
+  .signal-stats .stat { background: #161b22; padding: 12px; border-radius: 8px; text-align: center; }
+  .signal-stats .stat .label { font-size: 12px; color: #8b949e; }
+  .signal-stats .stat .value { font-size: 20px; font-weight: bold; color: #58a6ff; }
+  .signal-low { border-left: 3px solid #3fb950; }
+  .signal-high { border-left: 3px solid #f85149; }
+  .footer { text-align: center; color: #484f58; font-size: 12px; margin-top: 40px; padding-top: 20px; border-top: 1px solid #21262d; }
+  .cost-note { color: #8b949e; font-size: 13px; margin: 10px 0; padding: 10px; background: #161b22; border-radius: 6px; }
+  @media (max-width: 600px) { .cards { grid-template-columns: repeat(2, 1fr); } body { padding: 10px; } }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>T+0 盯盘日报</h1>
+  <div class="date">2026-05-21 | 佣金万一+印花税万五=往返0.07%</div>
+
+  <div class="cards">
+    <div class="card">
+      <div class="label">完成轮次</div>
+      <div class="value neutral">22</div>
+    </div>
+    <div class="card">
+      <div class="label">预估总收益（扣费后）</div>
+      <div class="value negative">-11.94%</div>
+    </div>
+    <div class="card">
+      <div class="label">胜率</div>
+      <div class="value negative">32%</div>
+    </div>
+    <div class="card">
+      <div class="label">平均每笔</div>
+      <div class="value negative">-0.54%</div>
+    </div>
+  </div>
+
+  <h2>📈 个股收益排行</h2>
+  
+            <div class="bar-row">
+                <span class="bar-label">中际旭创</span>
+                <div class="bar-track"><div class="bar-fill positive" style="width:100.0%"></div></div>
+                <span class="bar-value positive">+4.43%</span>
+            </div>
+            <div class="bar-row">
+                <span class="bar-label">迈威生物</span>
+                <div class="bar-track"><div class="bar-fill positive" style="width:30.474040632054177%"></div></div>
+                <span class="bar-value positive">+1.35%</span>
+            </div>
+            <div class="bar-row">
+                <span class="bar-label">杰普特</span>
+                <div class="bar-track"><div class="bar-fill positive" style="width:23.927765237020314%"></div></div>
+                <span class="bar-value positive">+1.06%</span>
+            </div>
+            <div class="bar-row">
+                <span class="bar-label">通富微电</span>
+                <div class="bar-track"><div class="bar-fill positive" style="width:22.799097065462757%"></div></div>
+                <span class="bar-value positive">+1.01%</span>
+            </div>
+            <div class="bar-row">
+                <span class="bar-label">江苏雷利</span>
+                <div class="bar-track"><div class="bar-fill negative" style="width:1.1286681715575624%"></div></div>
+                <span class="bar-value negative">-0.05%</span>
+            </div>
+            <div class="bar-row">
+                <span class="bar-label">先导智能</span>
+                <div class="bar-track"><div class="bar-fill negative" style="width:9.706546275395034%"></div></div>
+                <span class="bar-value negative">-0.43%</span>
+            </div>
+            <div class="bar-row">
+                <span class="bar-label">宁德时代</span>
+                <div class="bar-track"><div class="bar-fill negative" style="width:19.864559819413095%"></div></div>
+                <span class="bar-value negative">-0.88%</span>
+            </div>
+            <div class="bar-row">
+                <span class="bar-label">亿纬锂能</span>
+                <div class="bar-track"><div class="bar-fill negative" style="width:47.17832957110609%"></div></div>
+                <span class="bar-value negative">-2.09%</span>
+            </div>
+            <div class="bar-row">
+                <span class="bar-label">海光信息</span>
+                <div class="bar-track"><div class="bar-fill negative" style="width:54.853273137697514%"></div></div>
+                <span class="bar-value negative">-2.43%</span>
+            </div>
+            <div class="bar-row">
+                <span class="bar-label">新易盛</span>
+                <div class="bar-track"><div class="bar-fill negative" style="width:72.46049661399549%"></div></div>
+                <span class="bar-value negative">-3.21%</span>
+            </div>
+            <div class="bar-row">
+                <span class="bar-label">聚和材料</span>
+                <div class="bar-track"><div class="bar-fill negative" style="width:74.94356659142213%"></div></div>
+                <span class="bar-value negative">-3.32%</span>
+            </div>
+            <div class="bar-row">
+                <span class="bar-label">福晶科技</span>
+                <div class="bar-track"><div class="bar-fill negative" style="width:81.7155756207675%"></div></div>
+                <span class="bar-value negative">-3.62%</span>
+            </div>
+            <div class="bar-row">
+                <span class="bar-label">东材科技</span>
+                <div class="bar-track"><div class="bar-fill negative" style="width:84.87584650112868%"></div></div>
+                <span class="bar-value negative">-3.76%</span>
+            </div>
+
+  <h2>📋 交易明细（已配对）</h2>
+  <table>
+    <tr><th>股票</th><th>轮次</th><th>类型</th><th>买入时间</th><th>买入价</th><th>卖出时间</th><th>卖出价</th><th>差价</th><th>净收益</th></tr>
+    
+            <tr>
+                <td>中际旭创</td>
+                <td>第1轮</td>
+                <td>反T</td>
+                <td>13:04</td>
+                <td>1026.36</td>
+                <td>11:08</td>
+                <td>1036.12</td>
+                <td>+0.94%</td>
+                <td class="positive">+0.87%</td>
+            </tr>
+            <tr>
+                <td>聚和材料</td>
+                <td>第1轮</td>
+                <td>反T</td>
+                <td>13:04</td>
+                <td>116.15</td>
+                <td>11:08</td>
+                <td>117.68</td>
+                <td>+1.30%</td>
+                <td class="positive">+1.23%</td>
+            </tr>
+            <tr>
+                <td>先导智能</td>
+                <td>第1轮</td>
+                <td>正T</td>
+                <td>11:19</td>
+                <td>52.37</td>
+                <td>13:04</td>
+                <td>52.18</td>
+                <td>-0.36%</td>
+                <td class="negative">-0.43%</td>
+            </tr>
+            <tr>
+                <td>中际旭创</td>
+                <td>第2轮</td>
+                <td>正T</td>
+                <td>13:14</td>
+                <td>1022.3</td>
+                <td>13:24</td>
+                <td>1031.04</td>
+                <td>+0.85%</td>
+                <td class="positive">+0.78%</td>
+            </tr>
+            <tr>
+                <td>杰普特</td>
+                <td>第1轮</td>
+                <td>反T</td>
+                <td>13:30</td>
+                <td>409.99</td>
+                <td>11:29</td>
+                <td>414.95</td>
+                <td>+1.20%</td>
+                <td class="positive">+1.13%</td>
+            </tr>
+            <tr>
+                <td>通富微电</td>
+                <td>第1轮</td>
+                <td>反T</td>
+                <td>13:30</td>
+                <td>64.14</td>
+                <td>13:24</td>
+                <td>64.84</td>
+                <td>+1.08%</td>
+                <td class="positive">+1.01%</td>
+            </tr>
+            <tr>
+                <td>迈威生物</td>
+                <td>第1轮</td>
+                <td>反T</td>
+                <td>13:30</td>
+                <td>34.05</td>
+                <td>13:04</td>
+                <td>34.54</td>
+                <td>+1.42%</td>
+                <td class="positive">+1.35%</td>
+            </tr>
+            <tr>
+                <td>江苏雷利</td>
+                <td>第1轮</td>
+                <td>反T</td>
+                <td>13:30</td>
+                <td>48.42</td>
+                <td>13:24</td>
+                <td>48.43</td>
+                <td>+0.02%</td>
+                <td class="negative">-0.05%</td>
+            </tr>
+            <tr>
+                <td>宁德时代 ⚡强平</td>
+                <td>第1轮</td>
+                <td>正T</td>
+                <td>11:29</td>
+                <td>417.85</td>
+                <td>14:34</td>
+                <td>414.75</td>
+                <td>-0.74%</td>
+                <td class="negative">-0.81%</td>
+            </tr>
+            <tr>
+                <td>海光信息 ⚡强平</td>
+                <td>第1轮</td>
+                <td>正T</td>
+                <td>13:09</td>
+                <td>317.56</td>
+                <td>14:34</td>
+                <td>310.29</td>
+                <td>-2.29%</td>
+                <td class="negative">-2.36%</td>
+            </tr>
+            <tr>
+                <td>中际旭创 ⚡强平</td>
+                <td>第3轮</td>
+                <td>反T</td>
+                <td>14:34</td>
+                <td>999.1</td>
+                <td>13:30</td>
+                <td>1029.13</td>
+                <td>+2.92%</td>
+                <td class="positive">+2.85%</td>
+            </tr>
+            <tr>
+                <td>新易盛 ⚡强平</td>
+                <td>第1轮</td>
+                <td>正T</td>
+                <td>13:14</td>
+                <td>587.0</td>
+                <td>14:34</td>
+                <td>568.99</td>
+                <td>-3.07%</td>
+                <td class="negative">-3.14%</td>
+            </tr>
+            <tr>
+                <td>福晶科技 ⚡强平</td>
+                <td>第1轮</td>
+                <td>正T</td>
+                <td>13:14</td>
+                <td>103.62</td>
+                <td>14:34</td>
+                <td>100.01</td>
+                <td>-3.48%</td>
+                <td class="negative">-3.55%</td>
+            </tr>
+            <tr>
+                <td>聚和材料 ⚡强平</td>
+                <td>第2轮</td>
+                <td>正T</td>
+                <td>13:14</td>
+                <td>115.33</td>
+                <td>14:34</td>
+                <td>110.16</td>
+                <td>-4.48%</td>
+                <td class="negative">-4.55%</td>
+            </tr>
+            <tr>
+                <td>东材科技 ⚡强平</td>
+                <td>第1轮</td>
+                <td>正T</td>
+                <td>13:09</td>
+                <td>50.15</td>
+                <td>14:34</td>
+                <td>48.3</td>
+                <td>-3.69%</td>
+                <td class="negative">-3.76%</td>
+            </tr>
+            <tr>
+                <td>亿纬锂能 ⚡强平</td>
+                <td>第1轮</td>
+                <td>正T</td>
+                <td>11:29</td>
+                <td>65.83</td>
+                <td>14:34</td>
+                <td>64.5</td>
+                <td>-2.02%</td>
+                <td class="negative">-2.09%</td>
+            </tr>
+            <tr>
+                <td>宁德时代 ⚡强平</td>
+                <td>第2轮</td>
+                <td>正T</td>
+                <td>14:39</td>
+                <td>414.92</td>
+                <td>14:39</td>
+                <td>414.92</td>
+                <td>0.00%</td>
+                <td class="negative">-0.07%</td>
+            </tr>
+            <tr>
+                <td>海光信息 ⚡强平</td>
+                <td>第2轮</td>
+                <td>正T</td>
+                <td>14:39</td>
+                <td>314.04</td>
+                <td>14:39</td>
+                <td>314.04</td>
+                <td>0.00%</td>
+                <td class="negative">-0.07%</td>
+            </tr>
+            <tr>
+                <td>中际旭创 ⚡强平</td>
+                <td>第4轮</td>
+                <td>正T</td>
+                <td>14:44</td>
+                <td>1000.46</td>
+                <td>14:44</td>
+                <td>1000.46</td>
+                <td>0.00%</td>
+                <td class="negative">-0.07%</td>
+            </tr>
+            <tr>
+                <td>新易盛 ⚡强平</td>
+                <td>第2轮</td>
+                <td>正T</td>
+                <td>14:44</td>
+                <td>571.09</td>
+                <td>14:44</td>
+                <td>571.09</td>
+                <td>0.00%</td>
+                <td class="negative">-0.07%</td>
+            </tr>
+            <tr>
+                <td>杰普特 ⚡强平</td>
+                <td>第2轮</td>
+                <td>正T</td>
+                <td>14:49</td>
+                <td>387.0</td>
+                <td>14:49</td>
+                <td>387.0</td>
+                <td>0.00%</td>
+                <td class="negative">-0.07%</td>
+            </tr>
+            <tr>
+                <td>福晶科技 ⚡强平</td>
+                <td>第2轮</td>
+                <td>正T</td>
+                <td>14:49</td>
+                <td>101.01</td>
+                <td>14:49</td>
+                <td>101.01</td>
+                <td>0.00%</td>
+                <td class="negative">-0.07%</td>
+            </tr>
+  </table>
+
+  
+  
+    <div class="info-box">
+        <h3>💤 无信号股票</h3>
+        <p>比亚迪、厦钨新能</p>
+    </div>
+
+  <h2>📊 信号统计</h2>
+  <div class="signal-stats">
+    <div class="stat"><div class="label">低吸信号</div><div class="value">62次</div></div>
+    <div class="stat"><div class="label">高抛信号</div><div class="value">46次</div></div>
+    <div class="stat"><div class="label">配对成功率</div><div class="value">20%</div></div>
+    <div class="stat"><div class="label">盈利/亏损</div><div class="value">7/15</div></div>
+  </div>
+
+  <h2>🕐 全部信号时间线</h2>
+  <table>
+    <tr><th>时间</th><th>方向</th><th>股票</th><th>价格</th><th>触发条件</th><th>振幅</th></tr>
+    
+            <tr class="signal-low">
+                <td>11:08</td>
+                <td>🟢低吸</td>
+                <td>宁德时代</td>
+                <td>419.1</td>
+                <td>距低点0.26%, 主力净流入</td>
+                <td>2.3%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>11:08</td>
+                <td>🟢低吸</td>
+                <td>海光信息</td>
+                <td>323.21</td>
+                <td>距低点0.31%, 主力净流入</td>
+                <td>5.5%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>11:08</td>
+                <td>🔴高抛</td>
+                <td>中际旭创</td>
+                <td>1036.12</td>
+                <td>RSI6=70.0, 主力净流出</td>
+                <td>4.4%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>11:08</td>
+                <td>🟢低吸</td>
+                <td>福晶科技</td>
+                <td>105.09</td>
+                <td>跌2.8%, 距低点0.90%</td>
+                <td>5.5%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>11:08</td>
+                <td>🔴高抛</td>
+                <td>通富微电</td>
+                <td>64.41</td>
+                <td>RSI6=77.3, 涨3.4%, 换手9.6%</td>
+                <td>7.1%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>11:08</td>
+                <td>🔴高抛</td>
+                <td>聚和材料</td>
+                <td>117.68</td>
+                <td>RSI6=77.7, 涨1.3%, 换手3.9%</td>
+                <td>5.6%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>11:08</td>
+                <td>🔴高抛</td>
+                <td>江苏雷利</td>
+                <td>48.07</td>
+                <td>RSI6=69.5, 涨3.5%</td>
+                <td>5.1%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>11:08</td>
+                <td>🟢低吸</td>
+                <td>东材科技</td>
+                <td>50.74</td>
+                <td>跌1.5%, 距低点0.32%</td>
+                <td>4.1%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>11:13</td>
+                <td>🟢低吸</td>
+                <td>宁德时代</td>
+                <td>419.68</td>
+                <td>距低点0.40%, 主力净流入</td>
+                <td>2.3%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>11:13</td>
+                <td>🟢低吸</td>
+                <td>海光信息</td>
+                <td>320.05</td>
+                <td>距低点0.01%, 主力净流入</td>
+                <td>6.2%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>11:13</td>
+                <td>🔴高抛</td>
+                <td>中际旭创</td>
+                <td>1032.44</td>
+                <td>RSI6=67.4, 主力净流出</td>
+                <td>4.4%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>11:13</td>
+                <td>🔴高抛</td>
+                <td>杰普特</td>
+                <td>412.61</td>
+                <td>RSI6=89.0, 涨1.8%</td>
+                <td>5.3%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>11:13</td>
+                <td>🟢低吸</td>
+                <td>福晶科技</td>
+                <td>104.87</td>
+                <td>跌3.0%, 距低点0.69%</td>
+                <td>5.5%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>11:13</td>
+                <td>🔴高抛</td>
+                <td>通富微电</td>
+                <td>64.16</td>
+                <td>RSI6=76.9, 涨3.0%, 换手9.8%</td>
+                <td>7.1%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>11:13</td>
+                <td>🔴高抛</td>
+                <td>聚和材料</td>
+                <td>117.2</td>
+                <td>RSI6=76.7, 换手4.0%</td>
+                <td>5.6%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>11:13</td>
+                <td>🔴高抛</td>
+                <td>江苏雷利</td>
+                <td>48.22</td>
+                <td>RSI6=70.4, 涨3.8%</td>
+                <td>5.1%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>11:13</td>
+                <td>🟢低吸</td>
+                <td>东材科技</td>
+                <td>50.71</td>
+                <td>跌1.5%, 距低点0.26%</td>
+                <td>4.1%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>11:19</td>
+                <td>🟢低吸</td>
+                <td>宁德时代</td>
+                <td>418.83</td>
+                <td>距低点0.20%, 主力净流入</td>
+                <td>2.3%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>11:19</td>
+                <td>🟢低吸</td>
+                <td>海光信息</td>
+                <td>319.39</td>
+                <td>距低点0.22%, 主力净流入</td>
+                <td>6.7%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>11:19</td>
+                <td>🔴高抛</td>
+                <td>中际旭创</td>
+                <td>1030.0</td>
+                <td>RSI6=66.1, 主力净流出</td>
+                <td>4.4%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>11:19</td>
+                <td>🟢低吸</td>
+                <td>福晶科技</td>
+                <td>105.11</td>
+                <td>跌2.8%, 距低点0.92%</td>
+                <td>5.5%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>11:19</td>
+                <td>🔴高抛</td>
+                <td>通富微电</td>
+                <td>63.84</td>
+                <td>RSI6=76.0, 涨2.5%, 换手10.0%</td>
+                <td>7.1%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>11:19</td>
+                <td>🔴高抛</td>
+                <td>聚和材料</td>
+                <td>116.8</td>
+                <td>RSI6=75.3, 换手4.2%</td>
+                <td>5.6%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>11:19</td>
+                <td>🔴高抛</td>
+                <td>迈威生物</td>
+                <td>33.9</td>
+                <td>涨2.4%, 换手3.0%</td>
+                <td>5.5%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>11:19</td>
+                <td>🔴高抛</td>
+                <td>江苏雷利</td>
+                <td>48.3</td>
+                <td>RSI6=71.1, 涨4.0%, 距高点0.96%</td>
+                <td>5.1%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>11:19</td>
+                <td>🟢低吸</td>
+                <td>先导智能</td>
+                <td>52.37</td>
+                <td>距低点0.94%, 主力净流入</td>
+                <td>3.4%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>11:19</td>
+                <td>🟢低吸</td>
+                <td>东材科技</td>
+                <td>50.65</td>
+                <td>跌1.6%, 距低点0.14%</td>
+                <td>4.1%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>11:24</td>
+                <td>🟢低吸</td>
+                <td>宁德时代</td>
+                <td>418.95</td>
+                <td>距低点0.23%, 主力净流入</td>
+                <td>2.3%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>11:24</td>
+                <td>🟢低吸</td>
+                <td>海光信息</td>
+                <td>320.8</td>
+                <td>距低点0.67%, 主力净流入</td>
+                <td>6.7%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>11:24</td>
+                <td>🔴高抛</td>
+                <td>中际旭创</td>
+                <td>1031.08</td>
+                <td>RSI6=66.6, 主力净流出</td>
+                <td>4.4%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>11:24</td>
+                <td>🔴高抛</td>
+                <td>杰普特</td>
+                <td>414.0</td>
+                <td>RSI6=88.6, 涨2.1%</td>
+                <td>5.3%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>11:24</td>
+                <td>🟢低吸</td>
+                <td>福晶科技</td>
+                <td>104.85</td>
+                <td>跌3.0%, 距低点0.67%</td>
+                <td>5.5%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>11:24</td>
+                <td>🔴高抛</td>
+                <td>通富微电</td>
+                <td>63.92</td>
+                <td>RSI6=76.4, 涨2.6%, 换手10.1%</td>
+                <td>7.1%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>11:24</td>
+                <td>🔴高抛</td>
+                <td>聚和材料</td>
+                <td>116.87</td>
+                <td>RSI6=75.9, 换手4.2%</td>
+                <td>5.6%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>11:24</td>
+                <td>🔴高抛</td>
+                <td>迈威生物</td>
+                <td>33.87</td>
+                <td>涨2.3%, 换手3.1%</td>
+                <td>5.5%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>11:24</td>
+                <td>🔴高抛</td>
+                <td>江苏雷利</td>
+                <td>48.34</td>
+                <td>RSI6=71.1, 涨4.0%, 距高点0.88%</td>
+                <td>5.1%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>11:24</td>
+                <td>🟢低吸</td>
+                <td>先导智能</td>
+                <td>52.39</td>
+                <td>距低点0.98%, 主力净流入</td>
+                <td>3.4%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>11:24</td>
+                <td>🟢低吸</td>
+                <td>东材科技</td>
+                <td>50.73</td>
+                <td>跌1.5%, 距低点0.30%</td>
+                <td>4.1%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>11:29</td>
+                <td>🟢低吸</td>
+                <td>宁德时代</td>
+                <td>417.85</td>
+                <td>距低点0.01%, 主力净流入</td>
+                <td>2.3%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>11:29</td>
+                <td>🟢低吸</td>
+                <td>海光信息</td>
+                <td>318.2</td>
+                <td>距低点0.06%, 主力净流入</td>
+                <td>6.9%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>11:29</td>
+                <td>🔴高抛</td>
+                <td>中际旭创</td>
+                <td>1028.5</td>
+                <td>RSI6=65.0, 主力净流出</td>
+                <td>4.4%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>11:29</td>
+                <td>🔴高抛</td>
+                <td>杰普特</td>
+                <td>414.95</td>
+                <td>RSI6=89.3, 涨2.3%</td>
+                <td>5.3%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>11:29</td>
+                <td>🟢低吸</td>
+                <td>福晶科技</td>
+                <td>104.32</td>
+                <td>跌3.5%, 距低点0.16%</td>
+                <td>5.5%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>11:29</td>
+                <td>🔴高抛</td>
+                <td>通富微电</td>
+                <td>63.48</td>
+                <td>RSI6=75.4, 涨1.9%, 换手10.3%</td>
+                <td>7.1%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>11:29</td>
+                <td>🔴高抛</td>
+                <td>聚和材料</td>
+                <td>116.6</td>
+                <td>RSI6=75.3, 换手4.3%</td>
+                <td>5.6%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>11:29</td>
+                <td>🔴高抛</td>
+                <td>迈威生物</td>
+                <td>33.73</td>
+                <td>涨1.8%, 换手3.1%</td>
+                <td>5.5%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>11:29</td>
+                <td>🔴高抛</td>
+                <td>江苏雷利</td>
+                <td>47.81</td>
+                <td>RSI6=68.5, 涨2.9%</td>
+                <td>5.1%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>11:29</td>
+                <td>🟢低吸</td>
+                <td>东材科技</td>
+                <td>50.61</td>
+                <td>跌1.7%, 距低点0.40%</td>
+                <td>4.5%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>11:29</td>
+                <td>🟢低吸</td>
+                <td>亿纬锂能</td>
+                <td>65.83</td>
+                <td>跌1.1%, 距低点0.05%</td>
+                <td>2.2%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>13:04</td>
+                <td>🟢低吸</td>
+                <td>宁德时代</td>
+                <td>421.12</td>
+                <td>距低点0.79%, 主力净流入</td>
+                <td>2.4%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>13:04</td>
+                <td>🟢低吸</td>
+                <td>海光信息</td>
+                <td>318.69</td>
+                <td>距低点0.23%, 主力净流入</td>
+                <td>6.9%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>13:04</td>
+                <td>🟢低吸</td>
+                <td>中际旭创</td>
+                <td>1026.36</td>
+                <td>跌1.0%, 距低点0.62%</td>
+                <td>4.4%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>13:04</td>
+                <td>🟢低吸</td>
+                <td>福晶科技</td>
+                <td>104.02</td>
+                <td>跌3.8%, 距低点0.02%</td>
+                <td>5.6%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>13:04</td>
+                <td>🔴高抛</td>
+                <td>通富微电</td>
+                <td>63.67</td>
+                <td>RSI6=75.8, 涨2.2%, 换手10.7%</td>
+                <td>7.1%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>13:04</td>
+                <td>🟢低吸</td>
+                <td>聚和材料</td>
+                <td>116.15</td>
+                <td>距低点0.99%, 主力净流入</td>
+                <td>5.6%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>13:04</td>
+                <td>🔴高抛</td>
+                <td>迈威生物</td>
+                <td>34.54</td>
+                <td>涨4.3%, 换手3.5%</td>
+                <td>5.5%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>13:04</td>
+                <td>🔴高抛</td>
+                <td>江苏雷利</td>
+                <td>47.87</td>
+                <td>RSI6=69.0, 涨3.0%</td>
+                <td>5.1%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>13:04</td>
+                <td>🔴高抛</td>
+                <td>先导智能</td>
+                <td>52.18</td>
+                <td>涨1.0%, 主力净流出</td>
+                <td>3.4%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>13:04</td>
+                <td>🟢低吸</td>
+                <td>东材科技</td>
+                <td>50.58</td>
+                <td>跌1.8%, 距低点0.42%</td>
+                <td>4.6%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>13:09</td>
+                <td>🟢低吸</td>
+                <td>宁德时代</td>
+                <td>420.0</td>
+                <td>距低点0.53%, 主力净流入</td>
+                <td>2.4%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>13:09</td>
+                <td>🟢低吸</td>
+                <td>海光信息</td>
+                <td>317.56</td>
+                <td>距低点0.00%, 主力净流入</td>
+                <td>7.0%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>13:09</td>
+                <td>🟢低吸</td>
+                <td>中际旭创</td>
+                <td>1023.19</td>
+                <td>跌1.3%, 距低点0.31%</td>
+                <td>4.4%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>13:09</td>
+                <td>🟢低吸</td>
+                <td>福晶科技</td>
+                <td>104.08</td>
+                <td>跌3.7%, 距低点0.08%</td>
+                <td>5.6%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>13:09</td>
+                <td>🔴高抛</td>
+                <td>通富微电</td>
+                <td>63.39</td>
+                <td>RSI6=75.5, 涨1.8%, 换手10.8%</td>
+                <td>7.1%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>13:09</td>
+                <td>🟢低吸</td>
+                <td>聚和材料</td>
+                <td>115.64</td>
+                <td>距低点0.55%, 主力净流入</td>
+                <td>5.6%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>13:09</td>
+                <td>🔴高抛</td>
+                <td>迈威生物</td>
+                <td>34.47</td>
+                <td>涨4.1%, 换手3.8%</td>
+                <td>5.5%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>13:09</td>
+                <td>🔴高抛</td>
+                <td>江苏雷利</td>
+                <td>47.86</td>
+                <td>RSI6=68.8, 涨3.0%</td>
+                <td>5.1%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>13:09</td>
+                <td>🟢低吸</td>
+                <td>东材科技</td>
+                <td>50.15</td>
+                <td>跌2.6%, 距低点0.00%</td>
+                <td>5.0%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>13:14</td>
+                <td>🟢低吸</td>
+                <td>宁德时代</td>
+                <td>419.23</td>
+                <td>距低点0.34%, 主力净流入</td>
+                <td>2.4%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>13:14</td>
+                <td>🟢低吸</td>
+                <td>海光信息</td>
+                <td>318.34</td>
+                <td>距低点0.40%, 主力净流入</td>
+                <td>7.2%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>13:14</td>
+                <td>🟢低吸</td>
+                <td>中际旭创</td>
+                <td>1022.3</td>
+                <td>跌1.4%, 距低点0.22%</td>
+                <td>4.4%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>13:14</td>
+                <td>🟢低吸</td>
+                <td>新易盛</td>
+                <td>587.0</td>
+                <td>距低点0.94%, 主力净流入</td>
+                <td>3.8%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>13:14</td>
+                <td>🟢低吸</td>
+                <td>福晶科技</td>
+                <td>103.62</td>
+                <td>跌4.1%, 距低点0.12%</td>
+                <td>6.1%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>13:14</td>
+                <td>🔴高抛</td>
+                <td>通富微电</td>
+                <td>63.87</td>
+                <td>RSI6=76.3, 涨2.5%, 换手11.0%</td>
+                <td>7.1%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>13:14</td>
+                <td>🟢低吸</td>
+                <td>聚和材料</td>
+                <td>115.33</td>
+                <td>距低点0.28%, 主力净流入</td>
+                <td>5.6%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>13:14</td>
+                <td>🔴高抛</td>
+                <td>迈威生物</td>
+                <td>34.14</td>
+                <td>涨3.1%, 换手3.9%</td>
+                <td>5.5%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>13:14</td>
+                <td>🔴高抛</td>
+                <td>江苏雷利</td>
+                <td>47.9</td>
+                <td>RSI6=68.7, 涨3.1%, 换手3.0%</td>
+                <td>5.1%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>13:14</td>
+                <td>🟢低吸</td>
+                <td>东材科技</td>
+                <td>50.25</td>
+                <td>跌2.4%, 距低点0.28%</td>
+                <td>5.1%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>13:19</td>
+                <td>🟢低吸</td>
+                <td>宁德时代</td>
+                <td>420.58</td>
+                <td>距低点0.67%, 主力净流入</td>
+                <td>2.4%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>13:19</td>
+                <td>🟢低吸</td>
+                <td>中际旭创</td>
+                <td>1026.56</td>
+                <td>跌1.0%, 距低点0.64%</td>
+                <td>4.4%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>13:19</td>
+                <td>🔴高抛</td>
+                <td>杰普特</td>
+                <td>409.87</td>
+                <td>RSI6=88.0, 涨1.1%</td>
+                <td>5.3%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>13:19</td>
+                <td>🟢低吸</td>
+                <td>福晶科技</td>
+                <td>104.09</td>
+                <td>跌3.7%, 距低点0.57%</td>
+                <td>6.1%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>13:19</td>
+                <td>🔴高抛</td>
+                <td>通富微电</td>
+                <td>64.63</td>
+                <td>RSI6=77.5, 涨3.8%, 换手11.2%</td>
+                <td>7.1%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>13:19</td>
+                <td>🟢低吸</td>
+                <td>聚和材料</td>
+                <td>115.96</td>
+                <td>距低点0.83%, 主力净流入</td>
+                <td>5.6%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>13:19</td>
+                <td>🔴高抛</td>
+                <td>迈威生物</td>
+                <td>34.03</td>
+                <td>涨2.8%, 换手3.9%</td>
+                <td>5.5%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>13:19</td>
+                <td>🔴高抛</td>
+                <td>江苏雷利</td>
+                <td>47.98</td>
+                <td>RSI6=69.7, 涨3.3%, 换手3.1%</td>
+                <td>5.1%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>13:19</td>
+                <td>🟢低吸</td>
+                <td>东材科技</td>
+                <td>50.41</td>
+                <td>跌2.1%, 距低点0.60%</td>
+                <td>5.1%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>13:24</td>
+                <td>🟢低吸</td>
+                <td>宁德时代</td>
+                <td>420.98</td>
+                <td>距低点0.76%, 主力净流入</td>
+                <td>2.4%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>13:24</td>
+                <td>🔴高抛</td>
+                <td>中际旭创</td>
+                <td>1031.04</td>
+                <td>RSI6=65.8, 主力净流出</td>
+                <td>4.4%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>13:24</td>
+                <td>🔴高抛</td>
+                <td>杰普特</td>
+                <td>410.52</td>
+                <td>RSI6=87.7, 涨1.2%</td>
+                <td>5.3%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>13:24</td>
+                <td>🟢低吸</td>
+                <td>福晶科技</td>
+                <td>103.71</td>
+                <td>跌4.1%, 距低点0.20%</td>
+                <td>6.1%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>13:24</td>
+                <td>🔴高抛</td>
+                <td>通富微电</td>
+                <td>64.84</td>
+                <td>RSI6=78.3, 涨4.1%, 换手11.5%</td>
+                <td>7.1%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>13:24</td>
+                <td>🟢低吸</td>
+                <td>聚和材料</td>
+                <td>115.9</td>
+                <td>距低点0.77%, 主力净流入</td>
+                <td>5.6%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>13:24</td>
+                <td>🔴高抛</td>
+                <td>迈威生物</td>
+                <td>34.05</td>
+                <td>涨2.8%, 换手3.9%</td>
+                <td>5.5%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>13:24</td>
+                <td>🔴高抛</td>
+                <td>江苏雷利</td>
+                <td>48.43</td>
+                <td>RSI6=71.3, 涨4.2%, 距高点0.70%, 换手3.2%</td>
+                <td>5.1%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>13:24</td>
+                <td>🟢低吸</td>
+                <td>东材科技</td>
+                <td>50.15</td>
+                <td>跌2.6%, 距低点0.30%</td>
+                <td>5.3%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>13:30</td>
+                <td>🟢低吸</td>
+                <td>宁德时代</td>
+                <td>421.38</td>
+                <td>距低点0.86%, 主力净流入</td>
+                <td>2.4%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>13:30</td>
+                <td>🟢低吸</td>
+                <td>海光信息</td>
+                <td>320.59</td>
+                <td>主力净流入</td>
+                <td>7.2%</td>
+            </tr>
+            <tr class="signal-high">
+                <td>13:30</td>
+                <td>🔴高抛</td>
+                <td>中际旭创</td>
+                <td>1029.13</td>
+                <td>RSI6=65.5, 主力净流出</td>
+                <td>4.4%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>13:30</td>
+                <td>🟢低吸</td>
+                <td>新易盛</td>
+                <td>592.28</td>
+                <td>主力净流入</td>
+                <td>3.8%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>13:30</td>
+                <td>🟢低吸</td>
+                <td>杰普特</td>
+                <td>409.99</td>
+                <td>主力净流入</td>
+                <td>5.3%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>13:30</td>
+                <td>🟢低吸</td>
+                <td>福晶科技</td>
+                <td>103.74</td>
+                <td>跌4.0%, 距低点0.23%</td>
+                <td>6.1%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>13:30</td>
+                <td>🟢低吸</td>
+                <td>通富微电</td>
+                <td>64.14</td>
+                <td>主力净流入</td>
+                <td>7.1%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>13:30</td>
+                <td>🟢低吸</td>
+                <td>聚和材料</td>
+                <td>115.5</td>
+                <td>距低点0.43%, 主力净流入</td>
+                <td>5.6%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>13:30</td>
+                <td>🟢低吸</td>
+                <td>迈威生物</td>
+                <td>34.05</td>
+                <td>主力净流入</td>
+                <td>5.5%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>13:30</td>
+                <td>🟢低吸</td>
+                <td>江苏雷利</td>
+                <td>48.42</td>
+                <td>主力净流入</td>
+                <td>5.1%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>13:30</td>
+                <td>🟢低吸</td>
+                <td>东材科技</td>
+                <td>50.15</td>
+                <td>跌2.6%, 距低点0.32%</td>
+                <td>5.4%</td>
+            </tr>
+            <tr class="signal-low">
+                <td>13:30</td>
+                <td>🟢低吸</td>
+                <td>亿纬锂能</td>
+                <td>66.19</td>
+                <td>距低点0.59%</td>
+                <td>2.2%</td>
+            </tr>
+  </table>
+
+  <div class="cost-note">
+    💰 交易成本：佣金万一（双向）+ 印花税万五（卖出单边）= 往返0.07% | 净收益已扣除全部交易成本 | 净收益目标>0.6%/笔
+  </div>
+
+  <div class="footer">
+    T+0 日内盯盘系统 | 数据来源：westock-data | 仅供参考，不构成投资建议
+  </div>
+</div>
+</body>
+</html>

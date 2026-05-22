@@ -1826,7 +1826,7 @@ def run_check(force=False):
         orb = _strategy_state["orbCache"].get(code, {})
 
         # 根据趋势确定主策略方向
-        if phase in ("normal", "active", "forceclose"):
+        if phase in ("normal", "active"):
             # 精选/主动寻配阶段：趋势决定策略偏好
             if trend == "BULL":
                 # 多头：只做正T（低吸），禁用反T
@@ -1897,6 +1897,60 @@ def run_check(force=False):
                                                         neg_details, neg_entry, neg_stop, neg_target, vwap, trend)
                             output_lines.append(msg)
                             has_signal = True
+
+    # ═══ 阶段1.5: 强制收尾前 — 只配对已有仓位，不准建新仓 ═══
+    if phase == "forceclose":
+        for code in ALL_CODES:
+            if code in T0_DISABLED:
+                continue
+            quote = quotes.get(code, {})
+            if not quote:
+                continue
+            try:
+                price = float(quote.get("price", quote.get("currentPrice", 0)))
+            except (ValueError, TypeError):
+                continue
+            if price <= 0:
+                continue
+            
+            stock_state = get_stock_state(signals_data, code)
+            pending = stock_state.get("pendingSignal")
+            if not pending:
+                continue  # 无未配对仓位，跳过（不准开新仓）
+            
+            # 获取VWAP和趋势（用于配对判断）
+            minute_bars = fetch_minute_data(code)
+            vwap = calc_vwap(minute_bars)
+            ma_data = ma_map.get(code, {})
+            ma20 = ma60 = None
+            if ma_data:
+                for key, val in ma_data.items():
+                    if "ma_20" in key.lower() and val and val != "-":
+                        try: ma20 = float(val)
+                        except: pass
+                    elif "ma_60" in key.lower() and val and val != "-":
+                        try: ma60 = float(val)
+                        except: pass
+            trend = classify_trend(ma20, ma60, price)
+            orb = _strategy_state["orbCache"].get(code, {})
+            
+            # 只检查反向信号（尝试自然配对）
+            if pending["signalType"] == "low":
+                negative_ok, neg_strength, neg_details, neg_entry, neg_stop, neg_target = \
+                    check_entry_negative(code, quote, vwap, trend, orb)
+                if negative_ok:
+                    msg = process_entry_signal(signals_data, code, "high", price, neg_strength,
+                                                neg_details, neg_entry, neg_stop, neg_target, vwap, trend)
+                    output_lines.append(msg)
+                    has_signal = True
+            else:
+                positive_ok, pos_strength, pos_details, pos_entry, pos_stop, pos_target = \
+                    check_entry_positive(code, quote, vwap, trend, orb)
+                if positive_ok:
+                    msg = process_entry_signal(signals_data, code, "low", price, pos_strength,
+                                                pos_details, pos_entry, pos_stop, pos_target, vwap, trend)
+                    output_lines.append(msg)
+                    has_signal = True
 
     # ═══ 阶段2: 强制闭环逻辑（14:30之后） ═══
     if phase in ("forceclose", "hardclose"):
