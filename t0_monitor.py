@@ -1708,7 +1708,7 @@ def _ensure_data_server():
     # 后台启动 http.server，cwd 指定为 data/ 目录
     subprocess.Popen(
         [sys.executable, '-m', 'http.server', '8899'],
-        cwd=DATA_DIR,
+        cwd=DEFAULT_DATA_DIR,
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
     )
