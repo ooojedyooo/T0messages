@@ -490,6 +490,58 @@ def fetch_all_data():
                     funds[code] = item
 
     log(f"数据拉取完成: 行情{len(quotes)}只, 技术{len(techs)}只, 资金{len(funds)}只")
+    
+    # ====== 回退机制：quote失败时用minute数据补价格 ======
+    if len(quotes) == 0:
+        log("⚠️ 实时行情接口异常，启用分时数据回退...")
+        for code in ALL_CODES:
+            minute_data = run_cli(["minute", code])
+            if minute_data and isinstance(minute_data, list) and len(minute_data) > 0:
+                # 取最后一根分钟线作为当前价
+                last_bar = minute_data[-1]
+                try:
+                    current_price = float(last_bar.get("price", 0))
+                except (ValueError, TypeError):
+                    continue
+                
+                # 从所有分钟线提取高低
+                prices = []
+                for bar in minute_data:
+                    try:
+                        p = float(bar.get("price", 0))
+                        if p > 0:
+                            prices.append(p)
+                    except (ValueError, TypeError):
+                        pass
+                
+                if prices:
+                    day_high = max(prices)
+                    day_low = min(prices)
+                    # 用kline获取昨日收盘价算涨跌幅
+                    prev_close = None
+                    kline_data = run_cli(["kline", code, "--freq", "day", "--count", "2"])
+                    if kline_data and isinstance(kline_data, list) and len(kline_data) >= 2:
+                        try:
+                            prev_close = float(kline_data[-2].get("last", kline_data[-2].get("close", 0)))
+                        except (ValueError, TypeError):
+                            pass
+                    
+                    change_pct = 0
+                    if prev_close and prev_close > 0:
+                        change_pct = (current_price - prev_close) / prev_close * 100
+                    
+                    quotes[code] = {
+                        "code": code,
+                        "price": current_price,
+                        "high": day_high,
+                        "low": day_low,
+                        "changePercent": round(change_pct, 2),
+                        "change_pct": round(change_pct, 2),
+                        "volume_ratio": 1.0,  # 分时数据不含量比，给中性值
+                        "turnover_rate": 0,
+                    }
+        log(f"  分时回退完成: 行情{len(quotes)}只")
+    
     return quotes, techs, funds
 
 # ═══════════════════════════════════════════════════
