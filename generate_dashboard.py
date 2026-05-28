@@ -190,8 +190,9 @@ function renderStrategyBar(data) {{
   }}
   
   bar.innerHTML = `
-    <div class="strategy-tag"><span class="label">引擎</span><span class="value">20条策略池</span></div>
-    <div class="strategy-tag"><span class="label">阈值</span><span class="value">30%触发</span></div>
+    <div class="strategy-tag"><span class="label">引擎</span><span class="value">12条策略池</span></div>
+    <div class="strategy-tag"><span class="label">阈值</span><span class="value">25%触发</span></div>
+    <div class="strategy-tag"><span class="label">过滤</span><span class="value">振幅>2%+非空头</span></div>
     <div class="strategy-tag"><span class="label">已完成</span><span class="value" style="color:var(--blue)">${{completedCount}}轮</span></div>
     <div class="strategy-tag"><span class="label">待配对</span><span class="value" style="color:${{pendingCount > 0 ? 'var(--yellow)' : 'var(--green)'}}">${{pendingCount}}笔</span></div>
     <div class="strategy-tag"><span class="label">总收益</span><span class="value" style="color:${{totalReturn >= 0 ? 'var(--green)' : 'var(--red)'}}">${{totalReturn >= 0 ? '+' : ''}}${{totalReturn.toFixed(2)}}%</span></div>

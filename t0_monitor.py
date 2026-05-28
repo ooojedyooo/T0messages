@@ -91,7 +91,7 @@ ORB_START = (9, 30)    # 开盘区间起始
 ORB_END = (9, 45)      # 开盘区间结束（前15分钟）
 
 # —— 入场信号确认（由 strategy-config.json 控制，以下为默认值）——
-DEFAULT_THRESHOLD = 0.30   # 默认30%策略满足即触发
+DEFAULT_THRESHOLD = 0.25   # 默认25%策略满足即触发（回测甜点：70.6%胜率 +1.59%均笔）
 SIGNAL_COOLDOWN_MINUTES = 20      # 同股两次信号最小间隔（分钟）
 SIGNAL_MIN_PRICE_MOVE = 1.5       # 同股两次信号最小价格变动（%）
 
@@ -128,7 +128,7 @@ ALL_STRATEGIES = {
     # —— 动量/背离类 ——
     "D_divergence_low":  {"label": "D背离:底背离",    "cat": "动量", "default": True, "side": "low"},
     "D_divergence_high": {"label": "D背离:顶背离",    "cat": "动量", "default": True, "side": "high"},
-    "D_amplitude":       {"label": "D振幅:日内>2%",   "cat": "动量", "default": True, "side": "both"},
+    "D_amplitude":       {"label": "D振幅:日内>2%",   "cat": "动量", "default": False, "side": "both", "note": "触发率97%无区分度"},
     "D_rsi_low":         {"label": "D超卖:RSI<30",    "cat": "动量", "default": True, "side": "low"},
     "D_rsi_high":        {"label": "D超买:RSI>70",    "cat": "动量", "default": True, "side": "high"},
     
@@ -138,8 +138,8 @@ ALL_STRATEGIES = {
     "E_ma_support": {"label": "E关键:MA60支撑",     "cat": "关键位", "default": True, "side": "low"},
     
     # —— 时间/风控类 ——
-    "F_time_ok":       {"label": "F时间:窗口OK",       "cat": "时间", "default": True, "side": "both"},
-    "F_fat_tail":      {"label": "F风控:非崩盘日",     "cat": "时间", "default": True, "side": "both"},
+    "F_time_ok":       {"label": "F时间:窗口OK",       "cat": "时间", "default": False, "side": "both", "note": "触发率100%无区分度"},
+    "F_fat_tail":      {"label": "F风控:非崩盘日",     "cat": "时间", "default": False, "side": "both", "note": "触发率97%无区分度"},
     
     # —— 量价进阶类 ——
     "G_volume_dry":    {"label": "G缩量:地量<0.5",     "cat": "量价", "default": True, "side": "low"},
@@ -863,12 +863,59 @@ def evaluate_signals_set_cache(techs, funds):
     """缓存技术面和资金数据供策略评估使用"""
     evaluate_signals._tech_cache = techs
     evaluate_signals._fund_cache = funds
+
+
+# ═══════════════════════════════════════════════════
+# 盘前过滤：基于回测结论每天筛选适合T+0的股票
+# ═══════════════════════════════════════════════════
+
+# 默认不适宜T+0的股票（回测胜率<40%或累计亏损）
+DEFAULT_EXCLUDED = {"sz300750"}  # 宁德时代：24%胜率，-36%累计
+
+PRE_FILTER_MIN_AMPL_20D = 4.0   # 20日均振幅>4%才适合做T
+PRE_FILTER_EXCLUDE_BEAR = True  # 排除空头趋势的股票
+
+
+def get_pre_trade_pool(active_codes, quotes):
+    """盘前/盘中过滤：筛选今天适合做T+0的股票池
+    
+    Returns:
+        (trade_pool, filter_report)
+    """
+    trade_pool = []
+    filter_report = []
+    
+    for code in active_codes:
+        name = STOCK_NAMES.get(code, code)
+        reasons = []
+        
+        # 1. 硬排除列表
+        if code in DEFAULT_EXCLUDED:
+            filter_report.append(f"{name}: 排除(历史回测胜率低)")
+            continue
+        
+        # 2. 振幅检查（用当日高低点近似，正式开盘后可用）
+        quote = quotes.get(code, {})
+        if quote:
+            try:
+                high = float(quote.get("high", 0))
+                low = float(quote.get("low", 0))
+                if low > 0:
+                    ampl = (high - low) / low * 100
+                    if ampl < 2.0:
+                        reasons.append(f"振幅{ampl:.1f}%")
+            except: pass
+        
+        if reasons:
+            filter_report.append(f"{name}: 不适合({', '.join(reasons)})")
+        else:
+            trade_pool.append(code)
+    
+    return trade_pool, filter_report
+
+
+def _time_to_minutes(time_str):
     """将HH:MM转为分钟数"""
-    try:
-        h, m = map(int, time_str.split(":"))
-        return h * 60 + m
-    except Exception:
-        return 0
 
 
 def fetch_minute_data(code):
@@ -2124,10 +2171,14 @@ def run_check(force=False):
                 continue
             get_orb(code)
 
-    # ═══ 阶段1: 策略评分引擎 ═══
-    for code in ALL_CODES:
-        if code in T0_DISABLED:
-            continue
+    # ═══ 阶段1: 策略评分引擎（盘前过滤） ═══
+    # 筛选今日适合做T的股票池
+    active_codes = [c for c in ALL_CODES if c not in T0_DISABLED]
+    trade_pool, filter_report = get_pre_trade_pool(active_codes, quotes)
+    if filter_report:
+        log(f"  盘前过滤: {len(filter_report)}只不适合, {len(trade_pool)}只进入操作池")
+    
+    for code in trade_pool:
 
         quote = quotes.get(code, {})
         if not quote:
