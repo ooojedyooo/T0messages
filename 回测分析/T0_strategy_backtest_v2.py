@@ -11,7 +11,11 @@ from datetime import datetime
 
 CLI = "node"
 CLI_SCRIPT = os.path.expanduser("~/.workbuddy/plugins/marketplaces/cb_teams_marketplace/plugins/finance-data/skills/westock-data/scripts/index.js")
-DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+
+_BT_ROOT = os.path.dirname(os.path.abspath(__file__))
+_BT_DATE = datetime.now().strftime("%Y-%m-%d")
+DATA_DIR = os.path.join(_BT_ROOT, f"{_BT_DATE}-回测", "data")
+os.makedirs(DATA_DIR, exist_ok=True)
 
 HARD_COST = 0.0007
 

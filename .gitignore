@@ -11,6 +11,10 @@ data/history/*.json
 !data/history.html
 data/backtest-*.json
 
+# Backtest analysis - keep scripts/readme, ignore data
+回测分析/*/data/
+回测分析/*/charts/
+
 # Python
 __pycache__/
 *.pyc
