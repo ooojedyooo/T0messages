@@ -190,7 +190,8 @@ function renderStrategyBar(data) {{
   }}
   
   bar.innerHTML = `
-    <div class="strategy-tag"><span class="label">引擎</span><span class="value">VWAP共振 v2.0</span></div>
+    <div class="strategy-tag"><span class="label">引擎</span><span class="value">20条策略池</span></div>
+    <div class="strategy-tag"><span class="label">阈值</span><span class="value">30%触发</span></div>
     <div class="strategy-tag"><span class="label">已完成</span><span class="value" style="color:var(--blue)">${{completedCount}}轮</span></div>
     <div class="strategy-tag"><span class="label">待配对</span><span class="value" style="color:${{pendingCount > 0 ? 'var(--yellow)' : 'var(--green)'}}">${{pendingCount}}笔</span></div>
     <div class="strategy-tag"><span class="label">总收益</span><span class="value" style="color:${{totalReturn >= 0 ? 'var(--green)' : 'var(--red)'}}">${{totalReturn >= 0 ? '+' : ''}}${{totalReturn.toFixed(2)}}%</span></div>
@@ -314,28 +315,31 @@ function renderStocks(data) {{
     let pendingHtml = "";
     if (pendingSignal) {{
       const dirLabel = pendingSignal.signalType === "low" ? "低吸" : "高抛";
-      const stars = pendingSignal.strength ? "\u2605".repeat(pendingSignal.strength) + "\u2606".repeat(6 - pendingSignal.strength) : "";
+      const metCount = pendingSignal.strength || 0;
+      const strengthText = `${{metCount}}条策略`;
       const trendIcon = pendingSignal.trend === "BULL" ? "🟢" : pendingSignal.trend === "BEAR" ? "🔴" : "🟡";
       
-      // 构建触发条件列表
+      // 构建触发条件列表（最多8条，超出显示...）
       let conditionsHtml = "";
       const conds = pendingSignal.details || [];
       if (conds.length > 0) {{
-        conditionsHtml = '<div style="margin-top:4px;font-size:11px;color:var(--text-dim);line-height:1.6">';
-        conds.forEach(c => {{
-          let clr = "var(--text-dim)";
-          if (c.startsWith("A")) clr = "var(--blue)";
-          else if (c.startsWith("B")) clr = "var(--green)";
-          conditionsHtml += '<span style="color:' + clr + ';margin-right:6px">' + c + '</span><br>';
+        const show = conds.slice(0, 8);
+        const more = conds.length > 8 ? `<div style="color:var(--text-dim);margin-top:2px">...等共${{conds.length}}条策略</div>` : '';
+        conditionsHtml = '<div style="margin-top:6px;font-size:11px;color:var(--text-dim);line-height:1.8">';
+        show.forEach(c => {{
+          const isA = c.includes("锚点:");
+          const isB = c.includes("量价:");
+          const clr = isA ? "var(--blue)" : (isB ? "var(--green)" : "var(--text-dim)");
+          conditionsHtml += `<span style="color:${{clr}};display:inline-block;margin-right:10px">✅ ${{c}}</span>`;
         }});
-        conditionsHtml += '</div>';
+        conditionsHtml += more + '</div>';
       }}
       
       pendingHtml = `
         <div class="signal-card pending">
           <div class="sig-row">
             <span class="sig-label">&#x23f3; ${{pendingSignal.type}}第${{pendingSignal.round}}轮 ${{trendIcon}}${{pendingSignal.trend || '?'}} ${{dirLabel}}@${{pendingSignal.price}}</span>
-            <span class="sig-strength" title="${{pendingSignal.strength || 0}}/6个条件满足">${{stars}} (${{pendingSignal.strength || 0}}/6)</span>
+            <span class="sig-strength" title="${{metCount}}条策略满足">${{strengthText}}</span>
           </div>
           <div class="sig-detail" style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
             <span>入场：${{pendingSignal.entryZone || '--'}}</span>
