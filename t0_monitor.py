@@ -90,11 +90,10 @@ VWAP_DEVIATION_THRESHOLD = 2.0  # 价格偏离VWAP超过此%视为远离锚点�
 ORB_START = (9, 30)    # 开盘区间起始
 ORB_END = (9, 45)      # 开盘区间结束（前15分钟）
 
-# —— 入场信号确认 ——
-CONFIRM_MIN_TOTAL = 3   # 至少满足3个确认条件（含A+B）
+# —— 入场信号确认（由 strategy-config.json 控制，以下为默认值）——
+DEFAULT_THRESHOLD = 0.30   # 默认30%策略满足即触发
 SIGNAL_COOLDOWN_MINUTES = 20      # 同股两次信号最小间隔（分钟）
 SIGNAL_MIN_PRICE_MOVE = 1.5       # 同股两次信号最小价格变动（%）
-FORCE_CLOSE_COOLDOWN = False      # 强制闭环不受冷却限制
 
 # —— 风控参数 ——
 MAX_POSITION_RATIO = 0.25    # 单笔T仓不超过底仓的25%
@@ -102,6 +101,58 @@ MAX_CONCURRENT_POSITIONS = 2  # 最多同时持有未配对T仓的股票数
 HARD_STOP_LOSS = -1.5         # 硬止损：入场价-1.5%
 TIME_STOP_MINUTES = 30        # 时间止损：开仓30分钟未盈利即平仓
 CONSECUTIVE_LOSS_FUSE = 3     # 连续亏损3笔后当日停止开新仓
+
+# —— 策略配置文件 ——
+STRATEGY_CONFIG_FILE = os.path.join(SIGNALS_DIR, "strategy-config.json")
+
+# ═══════════════════════════════════════════════════
+# 20条策略定义（名称、标签、类别、默认启用）
+# ═══════════════════════════════════════════════════
+ALL_STRATEGIES = {
+    # —— 价格锚点类 ——
+    "A_vwap_low":       {"label": "A锚点:VWAP支撑",    "cat": "锚点", "default": True, "side": "low"},
+    "A_vwap_high":      {"label": "A锚点:VWAP压力",    "cat": "锚点", "default": True, "side": "high"},
+    "A_vwap_deviation": {"label": "A锚点:偏离VWAP>2%", "cat": "锚点", "default": True, "side": "both"},
+    
+    # —— 量价配合类 ——
+    "B_vol_shrink_fall": {"label": "B量价:缩量下跌",    "cat": "量价", "default": True, "side": "low"},
+    "B_vol_surge_rise":  {"label": "B量价:放量反弹",    "cat": "量价", "default": True, "side": "low"},
+    "B_vol_surge_stall": {"label": "B量价:放量滞涨",    "cat": "量价", "default": True, "side": "high"},
+    "B_vol_shrink_drop": {"label": "B量价:缩量回落",    "cat": "量价", "default": True, "side": "high"},
+    
+    # —— 趋势环境类 ——
+    "C_trend_long":   {"label": "C趋势:多头环境",   "cat": "趋势", "default": True, "side": "low"},
+    "C_trend_short":  {"label": "C趋势:空头环境",   "cat": "趋势", "default": True, "side": "high"},
+    "C_trend_range":  {"label": "C趋势:震荡环境",   "cat": "趋势", "default": True, "side": "both"},
+    
+    # —— 动量/背离类 ——
+    "D_divergence_low":  {"label": "D背离:底背离",    "cat": "动量", "default": True, "side": "low"},
+    "D_divergence_high": {"label": "D背离:顶背离",    "cat": "动量", "default": True, "side": "high"},
+    "D_amplitude":       {"label": "D振幅:日内>2%",   "cat": "动量", "default": True, "side": "both"},
+    "D_rsi_low":         {"label": "D超卖:RSI<30",    "cat": "动量", "default": True, "side": "low"},
+    "D_rsi_high":        {"label": "D超买:RSI>70",    "cat": "动量", "default": True, "side": "high"},
+    
+    # —— 关键位类 ——
+    "E_orb_low":    {"label": "E关键:ORB下沿支撑",  "cat": "关键位", "default": True, "side": "low"},
+    "E_orb_high":   {"label": "E关键:ORB上沿压力",  "cat": "关键位", "default": True, "side": "high"},
+    "E_ma_support": {"label": "E关键:MA60支撑",     "cat": "关键位", "default": True, "side": "low"},
+    
+    # —— 时间/风控类 ——
+    "F_time_ok":       {"label": "F时间:窗口OK",       "cat": "时间", "default": True, "side": "both"},
+    "F_fat_tail":      {"label": "F风控:非崩盘日",     "cat": "时间", "default": True, "side": "both"},
+    
+    # —— 量价进阶类 ——
+    "G_volume_dry":    {"label": "G缩量:地量<0.5",     "cat": "量价", "default": True, "side": "low"},
+    "G_double_bottom": {"label": "G形态:二次探底企稳", "cat": "量价", "default": True, "side": "low"},
+    
+    # —— 资金面 ——
+    "H_fund_inflow":  {"label": "H资金:主力净流入",    "cat": "资金", "default": True, "side": "low"},
+    "H_fund_outflow": {"label": "H资金:主力净流出",    "cat": "资金", "default": True, "side": "high"},
+}
+
+# 策略总览（自动生成）
+STRATEGY_NAMES = {k: v["label"] for k, v in ALL_STRATEGIES.items()}
+STRATEGY_CATEGORIES = list(set(v["cat"] for v in ALL_STRATEGIES.values()))
 
 # ═══════════════════════════════════════════════════
 # 通知配置
@@ -557,8 +608,261 @@ _strategy_state = {
     "fuseBlown": False,      # 熔断状态
 }
 
+# ═══════════════════════════════════════════════════
+# 策略配置系统
+# ═══════════════════════════════════════════════════
 
-def _time_to_minutes(time_str):
+def load_strategy_config():
+    """加载策略配置文件，不存在则创建默认"""
+    default_cfg = {
+        "threshold": DEFAULT_THRESHOLD,
+        "enabled": {k: v["default"] for k, v in ALL_STRATEGIES.items()},
+    }
+    if not os.path.exists(STRATEGY_CONFIG_FILE):
+        os.makedirs(os.path.dirname(STRATEGY_CONFIG_FILE), exist_ok=True)
+        with open(STRATEGY_CONFIG_FILE, "w", encoding="utf-8") as f:
+            json.dump(default_cfg, f, ensure_ascii=False, indent=2)
+        return default_cfg
+    try:
+        with open(STRATEGY_CONFIG_FILE, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+        # 合并新增策略
+        for k in ALL_STRATEGIES:
+            if k not in cfg.get("enabled", {}):
+                cfg.setdefault("enabled", {})[k] = ALL_STRATEGIES[k]["default"]
+        if "threshold" not in cfg:
+            cfg["threshold"] = DEFAULT_THRESHOLD
+        return cfg
+    except Exception:
+        load_strategy_config.__dict__["_warned"] = True
+        return default_cfg
+
+
+def save_strategy_config(cfg):
+    """保存策略配置"""
+    with open(STRATEGY_CONFIG_FILE, "w", encoding="utf-8") as f:
+        json.dump(cfg, f, ensure_ascii=False, indent=2)
+
+
+def get_active_strategies(side="low"):
+    """获取指定方向启用的策略ID列表"""
+    cfg = load_strategy_config()
+    enabled = cfg.get("enabled", {})
+    active = []
+    for sid, info in ALL_STRATEGIES.items():
+        if enabled.get(sid, True) and info["side"] in (side, "both"):
+            active.append(sid)
+    return active, cfg.get("threshold", DEFAULT_THRESHOLD)
+
+
+def evaluate_signals(code, quote, vwap, trend, orb, ma20, ma60, side):
+    """对单只股票评估所有20条策略
+    
+    Args:
+        side: "low"（正T=低吸）或 "high"（反T=高抛）
+    
+    Returns:
+        (met_count, met_ids, details, threshold_pct)
+    """
+    try:
+        price = float(quote.get("price", 0))
+        high = float(quote.get("high", 0))
+        low = float(quote.get("low", 0))
+        change_pct = float(quote.get("changePercent", quote.get("change_pct", 0)))
+    except (ValueError, TypeError):
+        return 0, [], [], 0
+    
+    if price <= 0:
+        return 0, [], [], 0
+    
+    # 获取量比、换手率
+    volume_ratio = None
+    turnover = None
+    for key in ["volume_ratio", "volumne_ratio"]:
+        val = quote.get(key)
+        if val and val != "-":
+            try: volume_ratio = float(val); break
+            except: pass
+    for key in ["turnover_rate", "turnoverrate"]:
+        val = quote.get(key)
+        if val and val != "-":
+            try: turnover = float(val); break
+            except: pass
+    
+    # RSI
+    rsi6 = None
+    tech = getattr(evaluate_signals, "_tech_cache", {}).get(code, {})
+    for key in ["rsi.RSI_6", "rsi_6", "rsi.rsi6"]:
+        val = tech.get(key)
+        if val and val != "-":
+            try: rsi6 = float(val); break
+            except: pass
+    
+    # 获取活跃策略列表
+    active_ids, threshold = get_active_strategies(side)
+    total_enabled = len(active_ids)
+    
+    met = {}     # {strategy_id: label_detail}
+    
+    now = datetime.now()
+    h, m = now.hour, now.minute
+    amplitude = (high - low) / low * 100 if low > 0 else 0
+    
+    # ═══════════ 逐条评估 ═══════════
+    
+    # A: VWAP锚点
+    if vwap and price > 0:
+        vwap_dev = (price - vwap) / vwap * 100
+        if side == "low":
+            if vwap_dev < 0.5:
+                met["A_vwap_low"] = f"偏差{vwap_dev:+.2f}%"
+            if abs(vwap_dev) > 2.0 and "A_vwap_deviation" in active_ids:
+                met["A_vwap_deviation"] = f"偏离{abs(vwap_dev):.1f}%→回归"
+        else:
+            if vwap_dev > -0.5:
+                met["A_vwap_high"] = f"偏差{vwap_dev:+.2f}%"
+            if abs(vwap_dev) > 2.0 and "A_vwap_deviation" in active_ids:
+                met["A_vwap_deviation"] = f"偏离{abs(vwap_dev):.1f}%→回归"
+    
+    # B: 量价配合
+    if volume_ratio is not None:
+        if side == "low":
+            if change_pct < 0 and volume_ratio < 0.8:
+                met["B_vol_shrink_fall"] = f"量比{volume_ratio:.2f}"
+            elif change_pct > 0 and volume_ratio > 1.0:
+                met["B_vol_surge_rise"] = f"量比{volume_ratio:.2f}"
+        else:
+            if change_pct > 0 and volume_ratio > 1.5:
+                met["B_vol_surge_stall"] = f"量比{volume_ratio:.2f}"
+            elif change_pct < 0 and volume_ratio < 0.8:
+                met["B_vol_shrink_drop"] = f"量比{volume_ratio:.2f}"
+    
+    # G: 地量
+    if volume_ratio is not None and 0 < volume_ratio < 0.5 and change_pct < 0:
+        met["G_volume_dry"] = f"地量{volume_ratio:.2f}"
+    
+    # G: 二次探底（简化：价格在低点附近+之前有过反弹）
+    if side == "low":
+        dist_low = (price - low) / low * 100 if low > 0 else 100
+        if dist_low < 0.8 and change_pct > -2.0:
+            met["G_double_bottom"] = f"距低{dist_low:.2f}%"
+    
+    # C: 趋势
+    if side == "low":
+        if trend in ("BULL",):
+            met["C_trend_long"] = "多头"
+        elif trend in ("RANGE",):
+            met["C_trend_range"] = "震荡"
+    else:
+        if trend in ("BEAR",):
+            met["C_trend_short"] = "空头"
+        elif trend in ("RANGE",):
+            met["C_trend_range"] = "震荡"
+    
+    # D: 背离
+    if side == "low":
+        dist_low = (price - low) / low * 100 if low > 0 else 100
+        if dist_low < 0.5 and change_pct > -1.5:
+            met["D_divergence_low"] = f"价近低{dist_low:.2f}%"
+    else:
+        dist_high = (high - price) / high * 100 if high > 0 else 100
+        if dist_high < 0.5 and change_pct < 1.5:
+            met["D_divergence_high"] = f"价近高{dist_high:.2f}%"
+    
+    # D: 振幅
+    if amplitude > 2.0:
+        met["D_amplitude"] = f"振幅{amplitude:.1f}%"
+    
+    # D: RSI超卖/超买
+    if rsi6 is not None:
+        if side == "low" and rsi6 < 30:
+            met["D_rsi_low"] = f"RSI{rsi6:.1f}"
+        elif side == "high" and rsi6 > 70:
+            met["D_rsi_high"] = f"RSI{rsi6:.1f}"
+    
+    # E: 关键位
+    if orb:
+        if side == "low" and orb.get("orbLow"):
+            o = orb["orbLow"]
+            d = (price - o) / o * 100
+            if 0 < d < 1.5:
+                met["E_orb_low"] = f"距ORB低{d:.1f}%"
+        elif side == "high" and orb.get("orbHigh"):
+            o = orb["orbHigh"]
+            d = (o - price) / o * 100
+            if 0 < d < 1.5:
+                met["E_orb_high"] = f"距ORB高{d:.1f}%"
+    
+    # E: MA60支撑（仅低吸）
+    if side == "low" and ma60 and price > 0:
+        d = (price - ma60) / ma60 * 100
+        if 0 < d < 5:
+            met["E_ma_support"] = f"距MA60={d:.1f}%"
+    
+    # F: 时间窗口
+    if not (h == 9 and m < 45) and not (h == 11 and m >= 15) and not (h == 12):
+        met["F_time_ok"] = "窗口OK"
+    
+    # F: 非崩盘日（当日跌幅<5%）
+    if change_pct > -5.0:
+        met["F_fat_tail"] = f"跌幅{abs(change_pct):.1f}%"
+    
+    # H: 资金面
+    fund = getattr(evaluate_signals, "_fund_cache", {}).get(code, {})
+    net_amount = None
+    for key in ["mainnetflow", "main_net_flow", "netamount"]:
+        val = fund.get(key)
+        if val and val != "-":
+            try: net_amount = float(val); break
+            except: pass
+    if net_amount is not None:
+        if side == "low" and net_amount > 0:
+            met["H_fund_inflow"] = f"净流入{net_amount/10000:.0f}万"
+        elif side == "high" and net_amount < 0:
+            met["H_fund_outflow"] = f"净流出{abs(net_amount)/10000:.0f}万"
+    
+    # 过滤：只保留启用的
+    enabled_ids = set(active_ids)
+    met_filtered = {k: v for k, v in met.items() if k in enabled_ids}
+    met_count = len(met_filtered)
+    
+    # 生成详情列表（带标签）
+    details = []
+    for sid, detail in met_filtered.items():
+        label = ALL_STRATEGIES[sid]["label"]
+        details.append(f"{label}({detail})")
+    
+    return met_count, list(met_filtered.keys()), details, threshold
+
+
+def get_entry_zones(quote, vwap, side):
+    """计算入场/目标/止损区间"""
+    try:
+        price = float(quote.get("price", 0))
+        high = float(quote.get("high", 0))
+        low = float(quote.get("low", 0))
+    except (ValueError, TypeError):
+        return None, None, None
+    
+    if price <= 0:
+        return None, None, None
+    
+    if side == "low":
+        entry = f"{round(low * 1.002, 2)}-{round(price, 2)}"
+        stop = round(price * (1 + HARD_STOP_LOSS / 100), 2)
+        target = f"{round(vwap * 1.015, 2)}-{round(high, 2)}" if vwap else f"{round(price * 1.02, 2)}-{round(high, 2)}"
+    else:
+        entry = f"{round(price, 2)}-{round(high * 0.998, 2)}"
+        stop = round(price * (1 - HARD_STOP_LOSS / 100), 2)
+        target = f"{round(low, 2)}-{round(vwap * 0.985, 2)}" if vwap else f"{round(low, 2)}-{round(price * 0.98, 2)}"
+    
+    return entry, stop, target
+
+
+def evaluate_signals_set_cache(techs, funds):
+    """缓存技术面和资金数据供策略评估使用"""
+    evaluate_signals._tech_cache = techs
+    evaluate_signals._fund_cache = funds
     """将HH:MM转为分钟数"""
     try:
         h, m = map(int, time_str.split(":"))
@@ -857,10 +1161,15 @@ def check_entry_negative(code, quote, vwap, trend, orb):
 
 
 def format_signal_card(code, name, direction, price, trend, vwap, strength, details, entry_zone, stop_loss, target_zone):
-    """格式化交易信号卡片"""
+    """格式化交易信号卡片 — 20条策略池版"""
     trend_emoji = {"BULL": "🟢", "BEAR": "🔴", "RANGE": "🟡"}
     trend_names = {"BULL": "多头", "BEAR": "空头", "RANGE": "震荡"}
-    stars = "★" * strength + "☆" * (6 - strength)
+    
+    # 启用的策略数和阈值
+    side_key = "low" if direction == "positive" else "high"
+    active_ids, threshold = get_active_strategies(side_key)
+    total = len(active_ids)
+    required = max(1, int(total * threshold))
     
     vwap_str = f"VWAP={vwap}" if vwap else "VWAP=计算中"
     dev_str = ""
@@ -871,10 +1180,8 @@ def format_signal_card(code, name, direction, price, trend, vwap, strength, deta
     direction_emoji = "🟢" if direction == "positive" else "🔴"
     direction_name = "正T (先买后卖)" if direction == "positive" else "反T (先卖后买)"
     
-    details_str = "\n".join(f"  ✅ {d}" for d in details)
-    
-    # 条件说明
-    legend = "A=锚点 B=量价 C=趋势 D=背离 E=关键位 F=时间"
+    details_str = "\n".join(f"  ✅ {d}" for d in details[:15])  # 最多显示15条
+    extra = f"  ... 等共{len(details)}条" if len(details) > 15 else ""
     
     card = f"""
 ╔══════════════════════════════════════╗
@@ -891,11 +1198,11 @@ def format_signal_card(code, name, direction, price, trend, vwap, strength, deta
 ║  止损价：{stop_loss or '--'} (-{abs(HARD_STOP_LOSS)}%)               ║
 ║  仓位建议：底仓{int(MAX_POSITION_RATIO*100)}%                      ║
 ║  ──────────────────────────────      ║
-║  触发条件（{strength}/6）：                   ║
+║  匹配策略（{strength}/{total} ≥ {required} 触发）：    ║
 {details_str}                         ║
+{extra}                         ║
 ║  ──────────────────────────────      ║
-║  信号强度：{stars} ({strength}/6) ♜ {legend}    ║
-║  ──────────────────────────────      ║
+║  池：{total}条启用 | 阈值：{int(threshold*100)}% | 仓位25%         ║
 ║  ⚠️ 人工确认后执行，盈亏自负       ║
 ╚══════════════════════════════════════╝"""
     return card
@@ -1793,11 +2100,10 @@ def run_check(force=False):
     phase, min_conditions = get_trading_phase()
     log(f"  当前阶段: {phase} (最低条件数: {min_conditions})")
 
-    output_lines = [f"\n🎯 T+0交易信号 | {now_cst()} | 阶段:{phase} | 策略:VWAP共振"]
+    output_lines = [f"\n🎯 T+0交易信号 | {now_cst()} | 阶段:{phase} | 策略{len(ALL_STRATEGIES)}条池"]
     has_signal = False
 
-    # ═══ 阶段0: 获取策略数据（VWAP、趋势、ORB） ═══
-    # 批量获取技术面MA数据（一行拉所有）
+    # ═══ 阶段0: 获取策略数据（MA、ORB） ═══
     all_ma = run_cli(["technical", ",".join(ALL_CODES), "--group", "ma"])
     ma_map = {}
     if all_ma:
@@ -1805,6 +2111,9 @@ def run_check(force=False):
             code = item.get("code", "")
             if code:
                 ma_map[code] = item
+
+    # 缓存技术面和资金数据供 evaluate_signals 使用
+    evaluate_signals_set_cache(techs, funds)
 
     # ORB仅在09:45第一次计算
     now = datetime.now()
@@ -1815,27 +2124,19 @@ def run_check(force=False):
                 continue
             get_orb(code)
 
-    # ═══ 阶段1: 新策略引擎 — VWAP锚定+多信号共振 ═══
+    # ═══ 阶段1: 策略评分引擎 ═══
     for code in ALL_CODES:
-        # T+0禁用标的：只记录行情，不触发信号
         if code in T0_DISABLED:
             continue
 
         quote = quotes.get(code, {})
-        tech = techs.get(code, {})
-        fund = funds.get(code, {})
-
         if not quote:
             continue
 
         try:
             price = float(quote.get("price", quote.get("currentPrice", 0)))
-            low = float(quote.get("low", quote.get("todayLow", 0)))
-            high = float(quote.get("high", quote.get("todayHigh", 0)))
-            change_pct = float(quote.get("changePercent", quote.get("change_pct", 0)))
         except (ValueError, TypeError):
             continue
-
         if price <= 0:
             continue
 
@@ -1851,104 +2152,57 @@ def run_check(force=False):
                 run_check._fuse_reported = True
             continue
 
-        # 获取趋势数据
+        # 获取趋势和MA
         ma_data = ma_map.get(code, {})
-        ma20 = None
-        ma60 = None
+        ma20 = ma60 = None
         if ma_data:
             for key, val in ma_data.items():
                 if "ma_20" in key.lower() and val and val != "-":
-                    try:
-                        ma20 = float(val)
-                    except (ValueError, TypeError):
-                        pass
+                    try: ma20 = float(val)
+                    except: pass
                 elif "ma_60" in key.lower() and val and val != "-":
-                    try:
-                        ma60 = float(val)
-                    except (ValueError, TypeError):
-                        pass
-        
+                    try: ma60 = float(val)
+                    except: pass
         trend = classify_trend(ma20, ma60, price)
 
-        # 获取VWAP
+        # 获取VWAP和ORB
         minute_bars = fetch_minute_data(code)
         vwap = calc_vwap(minute_bars)
-
-        # ORB
         orb = _strategy_state["orbCache"].get(code, {})
 
         # 根据趋势确定主策略方向
         if phase in ("normal", "active"):
-            # 精选/主动寻配阶段：趋势决定策略偏好
-            if trend == "BULL":
-                # 多头：只做正T（低吸），禁用反T
-                positive_ok, pos_strength, pos_details, pos_entry, pos_stop, pos_target = \
-                    check_entry_positive(code, quote, vwap, trend, orb)
-                if positive_ok:
-                    update_signal_cooling(code)
-                    msg = process_entry_signal(signals_data, code, "low", price, pos_strength, 
-                                                pos_details, pos_entry, pos_stop, pos_target, vwap, trend)
-                    output_lines.append(msg)
-                    has_signal = True
+            stock_state = get_stock_state(signals_data, code)
+            pending = stock_state.get("pendingSignal")
             
+            # 决定检查方向
+            check_sides = []
+            if pending:
+                # 有未配对：只检查反向
+                check_sides = ["high"] if pending["signalType"] == "low" else ["low"]
+            elif trend == "BULL":
+                check_sides = ["low"]  # 多头只做正T
             elif trend == "BEAR":
-                # 空头：只做反T（高抛），禁用正T
-                negative_ok, neg_strength, neg_details, neg_entry, neg_stop, neg_target = \
-                    check_entry_negative(code, quote, vwap, trend, orb)
-                if negative_ok:
+                check_sides = ["high"]  # 空头只做反T
+            else:
+                check_sides = ["low", "high"]  # 震荡双向
+            
+            for side in check_sides:
+                met_count, met_ids, details, threshold = evaluate_signals(
+                    code, quote, vwap, trend, orb, ma20, ma60, side)
+                
+                _, total_enabled = get_active_strategies(side)
+                required = max(1, int(total_enabled * threshold))
+                
+                if met_count >= required:
                     update_signal_cooling(code)
-                    msg = process_entry_signal(signals_data, code, "high", price, neg_strength,
-                                                neg_details, neg_entry, neg_stop, neg_target, vwap, trend)
+                    entry_zone, stop_loss, target_zone = get_entry_zones(quote, vwap, side)
+                    
+                    direction = "low" if side == "low" else "high"
+                    msg = process_entry_signal(signals_data, code, direction, price, met_count,
+                                                details, entry_zone, stop_loss, target_zone, vwap, trend)
                     output_lines.append(msg)
                     has_signal = True
-            
-            else:  # RANGE
-                # 震荡：正T反T均可，优先检查未配对仓位的反向信号
-                stock_state = get_stock_state(signals_data, code)
-                pending = stock_state.get("pendingSignal")
-                
-                if pending:
-                    # 有未配对仓位：只检查反向信号
-                    if pending["signalType"] == "low":
-                        # 已有低吸，等高抛
-                        negative_ok, neg_strength, neg_details, neg_entry, neg_stop, neg_target = \
-                            check_entry_negative(code, quote, vwap, trend, orb)
-                        if negative_ok:
-                            update_signal_cooling(code)
-                            msg = process_entry_signal(signals_data, code, "high", price, neg_strength,
-                                                        neg_details, neg_entry, neg_stop, neg_target, vwap, trend)
-                            output_lines.append(msg)
-                            has_signal = True
-                    else:
-                        # 已有高抛，等低吸
-                        positive_ok, pos_strength, pos_details, pos_entry, pos_stop, pos_target = \
-                            check_entry_positive(code, quote, vwap, trend, orb)
-                        if positive_ok:
-                            update_signal_cooling(code)
-                            msg = process_entry_signal(signals_data, code, "low", price, pos_strength,
-                                                        pos_details, pos_entry, pos_stop, pos_target, vwap, trend)
-                            output_lines.append(msg)
-                            has_signal = True
-                else:
-                    # 无仓位：两个方向都检查
-                    positive_ok, pos_strength, pos_details, pos_entry, pos_stop, pos_target = \
-                        check_entry_positive(code, quote, vwap, trend, orb)
-                    if positive_ok:
-                        update_signal_cooling(code)
-                        msg = process_entry_signal(signals_data, code, "low", price, pos_strength,
-                                                    pos_details, pos_entry, pos_stop, pos_target, vwap, trend)
-                        output_lines.append(msg)
-                        has_signal = True
-                    
-                    if not positive_ok:
-                        negative_ok, neg_strength, neg_details, neg_entry, neg_stop, neg_target = \
-                            check_entry_negative(code, quote, vwap, trend, orb)
-                        if negative_ok:
-                            update_signal_cooling(code)
-                            msg = process_entry_signal(signals_data, code, "high", price, neg_strength,
-                                                        neg_details, neg_entry, neg_stop, neg_target, vwap, trend)
-                            output_lines.append(msg)
-                            has_signal = True
 
     # ═══ 阶段1.5: 强制收尾前 — 只配对已有仓位，不准建新仓 ═══
     if phase == "forceclose":
