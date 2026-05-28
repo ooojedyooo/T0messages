@@ -9,6 +9,7 @@ data/reports/
 data/holidays.txt
 data/history/*.json
 !data/history.html
+data/backtest-*.json
 
 # Python
 __pycache__/
