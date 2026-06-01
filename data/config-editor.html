@@ -5,176 +5,167 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>T+0 配置编辑器</title>
 <style>
-* { margin:0; padding:0; box-sizing:border-box; }
-body { font-family: -apple-system,'Microsoft YaHei','PingFang SC',sans-serif; background:#0d1117; color:#c9d1d9; padding:20px; }
-.container { max-width:900px; margin:0 auto; }
-h1 { color:#58a6ff; font-size:22px; margin-bottom:5px; display:flex; align-items:center; gap:10px; }
-h1 .badge { font-size:12px; background:#238636; color:#fff; padding:2px 8px; border-radius:10px; }
-.header-bar { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px; }
-.status { font-size:12px; padding:4px 12px; border-radius:12px; }
-.status.ok { background:#1b3826; color:#3fb950; }
-.status.err { background:#3d1e1e; color:#f85149; }
-section { background:#161b22; border:1px solid #30363d; border-radius:10px; margin-bottom:15px; overflow:hidden; }
-section h2 { background:#1c2333; padding:10px 15px; font-size:14px; color:#58a6ff; cursor:pointer; display:flex; justify-content:space-between; align-items:center; }
-section h2:hover { background:#212a3d; }
-section h2 .arrow { transition:transform .2s; }
-section.collapsed .content { display:none; }
-section.collapsed .arrow { transform:rotate(-90deg); }
-.content { padding:12px 15px; }
-.field { display:flex; align-items:center; gap:10px; margin:8px 0; flex-wrap:wrap; }
-.field label { min-width:140px; font-size:13px; color:#8b949e; }
-.field input, .field select { background:#0d1117; border:1px solid #30363d; color:#c9d1d9; padding:6px 10px; border-radius:5px; font-size:13px; min-width:120px; }
-.field input:focus { border-color:#58a6ff; outline:none; }
-.field .unit { font-size:12px; color:#484f58; min-width:50px; }
-.field .desc { font-size:11px; color:#484f58; width:100%; margin-left:150px; }
-.stock-pool { display:flex; gap:8px; flex-wrap:wrap; margin:6px 0; }
-.stock-tag { display:flex; align-items:center; gap:4px; background:#1c2333; border:1px solid #30363d; border-radius:5px; padding:3px 8px; font-size:12px; }
-.stock-tag.disabled { opacity:0.4; text-decoration:line-through; }
-.stock-tag button { background:none; border:none; color:#f85149; cursor:pointer; font-size:14px; padding:0 2px; }
-.stock-tag button.enable { color:#3fb950; }
-.add-stock { display:flex; gap:6px; margin-top:6px; }
-.add-stock input { width:100px; }
-.add-stock button { background:#238636; border:none; color:#fff; padding:5px 12px; border-radius:5px; cursor:pointer; font-size:12px; }
-.actions { display:flex; gap:10px; margin-top:20px; }
-.actions button { padding:10px 24px; border:none; border-radius:6px; font-size:14px; cursor:pointer; font-weight:bold; }
-.btn-save { background:#238636; color:#fff; }
-.btn-reset { background:#30363d; color:#c9d1d9; }
-.btn-export { background:#1f6feb; color:#fff; }
-.toast { position:fixed; top:20px; right:20px; padding:10px 20px; border-radius:8px; font-size:14px; z-index:999; animation:fadeIn .3s; }
-.toast.success { background:#238636; color:#fff; }
-.toast.error { background:#da3633; color:#fff; }
-@keyframes fadeIn { from{opacity:0;transform:translateY(-10px)} to{opacity:1;transform:translateY(0)} }
-@media (max-width:600px) { .field { flex-direction:column; align-items:flex-start; } .field .desc { margin-left:0; } }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  :root {
+    --bg: #0d1117; --surface: #161b22; --border: #30363d;
+    --text: #c9d1d9; --text-dim: #8b949e; --text-bright: #f0f6fc;
+    --green: #3fb950; --red: #f85149; --blue: #58a6ff;
+    --yellow: #d29922; --purple: #bc8cff;
+  }
+  body { font-family: -apple-system,'Microsoft YaHei','PingFang SC',sans-serif; background:var(--bg); color:var(--text); padding:16px; max-width:1400px; margin:0 auto; }
+  .header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; flex-wrap:wrap; gap:12px; }
+  .header h1 { font-size:22px; color:var(--blue); }
+  .header-right { display:flex; align-items:center; gap:12px; }
+  .status { font-size:12px; padding:4px 12px; border-radius:12px; }
+  .status.ok { background:#1b3826; color:var(--green); }
+  .status.err { background:#3d1e1e; color:var(--red); }
+  .status.warn { background:#2d1f0e; color:var(--yellow); }
+  .btn { border:none; padding:8px 18px; border-radius:6px; cursor:pointer; font-size:13px; font-weight:bold; }
+  .btn-save { background:var(--green); color:#000; }
+  .btn-reset { background:var(--border); color:var(--text); }
+  .btn-save:hover, .btn-reset:hover { opacity:0.8; }
+
+  .section-title { color:var(--blue); font-size:15px; margin:20px 0 10px; border-bottom:1px solid var(--border); padding-bottom:6px; display:flex; align-items:center; gap:8px; }
+  .section-title .icon { font-size:16px; }
+
+  .stock-section { margin-bottom:16px; }
+  .stock-group { margin-bottom:8px; }
+  .stock-group .label { font-size:12px; color:var(--text-dim); margin-bottom:4px; }
+  .stock-pool { display:flex; gap:6px; flex-wrap:wrap; }
+  .stock-tag { display:flex; align-items:center; gap:4px; background:var(--surface); border:1px solid var(--border); border-radius:5px; padding:3px 8px; font-size:12px; color:var(--text-bright); }
+  .stock-tag.disabled { opacity:0.35; text-decoration:line-through; }
+  .stock-tag .btn-x { background:none; border:none; color:var(--red); cursor:pointer; font-size:13px; padding:0 2px; line-height:1; }
+  .stock-tag .btn-e { background:none; border:none; color:var(--green); cursor:pointer; font-size:13px; padding:0 2px; line-height:1; }
+  .stock-tag .btn-d { background:none; border:none; color:var(--yellow); cursor:pointer; font-size:13px; padding:0 2px; line-height:1; }
+  .add-stock { display:flex; gap:6px; margin-top:8px; align-items:center; }
+  .add-stock input, .add-stock select { background:var(--bg); border:1px solid var(--border); color:var(--text); padding:5px 10px; border-radius:5px; font-size:12px; }
+  .add-stock input:focus, .add-stock select:focus { border-color:var(--blue); outline:none; }
+  .add-stock input { width:100px; }
+  .add-stock button { background:var(--green); border:none; color:#000; padding:5px 12px; border-radius:5px; cursor:pointer; font-size:12px; font-weight:bold; }
+
+  .cards { display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:10px; margin-bottom:10px; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px; }
+  .card h3 { font-size:13px; color:var(--blue); margin-bottom:10px; font-weight:600; }
+  .card .row { display:flex; align-items:center; gap:8px; margin:7px 0; }
+  .card .row label { font-size:12px; color:var(--text-dim); min-width:90px; flex-shrink:0; }
+  .card .row input { background:var(--bg); border:1px solid var(--border); color:var(--text-bright); padding:5px 8px; border-radius:5px; font-size:12px; width:100px; }
+  .card .row input.wide { width:130px; }
+  .card .row input:focus { border-color:var(--blue); outline:none; }
+  .card .row .unit { font-size:11px; color:var(--text-dim); flex-shrink:0; }
+  .card .row .sep { color:var(--text-dim); margin:0 2px; }
+
+  .full-card { grid-column:1/-1; }
+  .strategy-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:4px; }
+  .strat-chip { display:flex; align-items:center; gap:6px; font-size:12px; padding:4px 8px; border-radius:4px; background:var(--bg); border:1px solid var(--border); }
+  .strat-chip .dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .strat-chip .dot.on { background:var(--green); }
+  .strat-chip .dot.off { background:var(--red); }
+  .strat-chip .name { flex:1; color:var(--text); }
+  .strat-chip .side { font-size:10px; color:var(--text-dim); background:var(--surface); padding:1px 5px; border-radius:3px; }
+
+  .actions { display:flex; gap:10px; margin:20px 0; }
+  .toast { position:fixed; top:16px; right:16px; padding:10px 20px; border-radius:8px; font-size:13px; z-index:999; animation:fadeIn .3s; pointer-events:none; }
+  .toast.success { background:#238636; color:#fff; }
+  .toast.error { background:#da3633; color:#fff; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(-10px)} to{opacity:1;transform:translateY(0)} }
 </style>
 </head>
 <body>
-<div class="container">
-<div class="header-bar">
-  <h1>⚙️ T+0 配置编辑器 <span class="badge" id="ver">v1.0</span></h1>
-  <span class="status" id="status">加载中...</span>
+
+<div class="header">
+  <h1>⚙️ T+0 配置编辑器</h1>
+  <div class="header-right">
+    <span class="status" id="status">加载中...</span>
+    <button class="btn btn-reset" onclick="loadConfig()">🔄 重新加载</button>
+    <button class="btn btn-save" onclick="saveConfig()">💾 保存配置</button>
+  </div>
 </div>
 
-<form id="configForm">
-  <!-- 标的池 -->
-  <section>
-    <h2 onclick="this.parentElement.classList.toggle('collapsed')">
-      📊 标的池 <span class="arrow">▼</span>
-    </h2>
-    <div class="content">
-      <div class="field">
-        <label>分组A (8只)</label>
-        <div class="stock-pool" id="pool_a"></div>
-      </div>
-      <div class="field">
-        <label>分组B (7只)</label>
-        <div class="stock-pool" id="pool_b"></div>
-      </div>
-      <div class="field">
-        <label>T+0禁用</label>
-        <div class="stock-pool" id="pool_disabled"></div>
-      </div>
-      <div class="add-stock">
-        <input type="text" id="new_code" placeholder="sz000001">
-        <input type="text" id="new_name" placeholder="股票名">
-        <select id="new_group"><option value="a">分组A</option><option value="b">分组B</option><option value="disabled">T+0禁用</option></select>
-        <button type="button" onclick="addStock()">+ 添加</button>
-      </div>
-    </div>
-  </section>
+<!-- 标的池 - 全宽 -->
+<div class="section-title"><span class="icon">📊</span> 标的池</div>
+<div class="stock-section">
+  <div class="stock-group"><div class="label">分组A（批量查询组1）</div><div class="stock-pool" id="pool_a"></div></div>
+  <div class="stock-group"><div class="label">分组B（批量查询组2）</div><div class="stock-pool" id="pool_b"></div></div>
+  <div class="stock-group"><div class="label">T+0 禁用（仅监控行情，不触发信号）</div><div class="stock-pool" id="pool_disabled"></div></div>
+  <div class="add-stock">
+    <input type="text" id="new_code" placeholder="sz000001">
+    <input type="text" id="new_name" placeholder="股票名称">
+    <select id="new_group">
+      <option value="a">→ 分组A</option>
+      <option value="b">→ 分组B</option>
+      <option value="disabled">→ T+0禁用</option>
+    </select>
+    <button type="button" onclick="addStock()">+ 添加</button>
+  </div>
+</div>
+
+<!-- 参数卡片网格 -->
+<div class="section-title"><span class="icon">🎛️</span> 参数配置</div>
+<div class="cards">
 
   <!-- 交易时段 -->
-  <section class="collapsed">
-    <h2 onclick="this.parentElement.classList.toggle('collapsed')">
-      🕐 交易时段 <span class="arrow">▼</span>
-    </h2>
-    <div class="content">
-      <div class="field">
-        <label>上午盘</label>
-        <input id="sess1_start" placeholder="09:30"> <span class="unit">—</span> <input id="sess1_end" placeholder="11:30">
-      </div>
-      <div class="field">
-        <label>下午盘</label>
-        <input id="sess2_start" placeholder="13:00"> <span class="unit">—</span> <input id="sess2_end" placeholder="15:00">
-      </div>
-      <div class="field">
-        <label>精选模式截止</label>
-        <input id="phase_normal"> <span class="unit">(条件≥2)</span>
-      </div>
-      <div class="field">
-        <label>主动寻配截止</label>
-        <input id="phase_active"> <span class="unit">(条件≥1)</span>
-      </div>
-      <div class="field">
-        <label>强制收尾截止</label>
-        <input id="phase_force"> <span class="unit">(14:50后硬截止)</span>
-      </div>
-    </div>
-  </section>
+  <div class="card">
+    <h3>🕐 交易时段</h3>
+    <div class="row"><label>上午盘</label><input id="sess1_start" placeholder="09:30"><span class="sep">—</span><input id="sess1_end" placeholder="11:30"></div>
+    <div class="row"><label>下午盘</label><input id="sess2_start" placeholder="13:00"><span class="sep">—</span><input id="sess2_end" placeholder="15:00"></div>
+    <div class="row"><label>精选截止</label><input id="phase_normal" placeholder="13:30"><span class="unit">条件≥2</span></div>
+    <div class="row"><label>主动截止</label><input id="phase_active" placeholder="14:30"><span class="unit">条件≥1</span></div>
+    <div class="row"><label>强收截止</label><input id="phase_force" placeholder="14:50"><span class="unit">14:50硬平</span></div>
+  </div>
 
   <!-- 交易成本 -->
-  <section class="collapsed">
-    <h2 onclick="this.parentElement.classList.toggle('collapsed')">
-      💰 交易成本 <span class="arrow">▼</span>
-    </h2>
-    <div class="content">
-      <div class="field"><label>佣金费率</label><input id="commission_rate" type="number" step="0.0001"><span class="unit">万分之</span></div>
-      <div class="field"><label>印花税率</label><input id="stamp_tax_rate" type="number" step="0.0001"><span class="unit">万五(卖出)</span></div>
-      <div class="field"><label>最小盈利目标</label><input id="min_profit_target" type="number" step="0.001"><span class="unit">%(净)</span></div>
-      <div class="field"><div class="desc">往返成本 = 佣金×2 + 印花税 = <span id="roundtrip_display">0.07</span>%</div></div>
-    </div>
-  </section>
+  <div class="card">
+    <h3>💰 交易成本</h3>
+    <div class="row"><label>佣金费率</label><input id="commission_rate" type="number" step="0.0001" class="wide"><span class="unit">万分之</span></div>
+    <div class="row"><label>印花税率</label><input id="stamp_tax_rate" type="number" step="0.0001" class="wide"><span class="unit">万五(卖出)</span></div>
+    <div class="row"><label>最小盈利</label><input id="min_profit_target" type="number" step="0.001" class="wide"><span class="unit">% 净收益</span></div>
+    <div class="row"><label>往返成本</label><span style="color:var(--text-bright);font-size:13px;" id="roundtrip_display">0.07</span><span class="unit">%</span></div>
+  </div>
 
   <!-- 趋势 & 锚点 -->
-  <section class="collapsed">
-    <h2 onclick="this.parentElement.classList.toggle('collapsed')">
-      📈 趋势 & 锚点 <span class="arrow">▼</span>
-    </h2>
-    <div class="content">
-      <div class="field"><label>EMA快线</label><input id="ema_fast" type="number"><span class="unit">日</span></div>
-      <div class="field"><label>EMA慢线</label><input id="ema_slow" type="number"><span class="unit">日</span></div>
-      <div class="field"><label>趋势回溯</label><input id="trend_lookback" type="number"><span class="unit">日</span></div>
-      <div class="field"><label>VWAP偏离阈值</label><input id="vwap_dev" type="number" step="0.1"><span class="unit">%(均值回归)</span></div>
-      <div class="field"><label>ORB区间</label><input id="orb_start" placeholder="09:30"> <span class="unit">—</span> <input id="orb_end" placeholder="09:45"></div>
-    </div>
-  </section>
+  <div class="card">
+    <h3>📈 趋势 & 锚点</h3>
+    <div class="row"><label>EMA快线</label><input id="ema_fast" type="number"><span class="unit">日</span></div>
+    <div class="row"><label>EMA慢线</label><input id="ema_slow" type="number"><span class="unit">日</span></div>
+    <div class="row"><label>趋势回溯</label><input id="trend_lookback" type="number"><span class="unit">日</span></div>
+    <div class="row"><label>VWAP偏离</label><input id="vwap_dev" type="number" step="0.1"><span class="unit">% 均值回归</span></div>
+    <div class="row"><label>ORB区间</label><input id="orb_start" placeholder="09:30"><span class="sep">—</span><input id="orb_end" placeholder="09:45"></div>
+  </div>
 
   <!-- 信号 -->
-  <section class="collapsed">
-    <h2 onclick="this.parentElement.classList.toggle('collapsed')">
-      📡 信号 <span class="arrow">▼</span>
-    </h2>
-    <div class="content">
-      <div class="field"><label>触发阈值</label><input id="sig_threshold" type="number" step="0.05"><span class="unit">(策略满足比例)</span></div>
-      <div class="field"><label>冷却时间</label><input id="sig_cooldown" type="number"><span class="unit">分钟</span></div>
-      <div class="field"><label>最小价格变动</label><input id="sig_minmove" type="number" step="0.1"><span class="unit">%(同向需超此%)</span></div>
-    </div>
-  </section>
+  <div class="card">
+    <h3>📡 信号</h3>
+    <div class="row"><label>触发阈值</label><input id="sig_threshold" type="number" step="0.05"><span class="unit">策略满足比</span></div>
+    <div class="row"><label>冷却时间</label><input id="sig_cooldown" type="number"><span class="unit">分钟</span></div>
+    <div class="row"><label>最小价变</label><input id="sig_minmove" type="number" step="0.1"><span class="unit">% 同向价差</span></div>
+  </div>
 
   <!-- 风控 -->
-  <section>
-    <h2 onclick="this.parentElement.classList.toggle('collapsed')">
-      🛡️ 风控 <span class="arrow">▼</span>
-    </h2>
-    <div class="content">
-      <div class="field"><label>单笔仓位比</label><input id="risk_position" type="number" step="0.05"><span class="unit">(底仓%)</span></div>
-      <div class="field"><label>最大并发持仓</label><input id="risk_concurrent" type="number"><span class="unit">只</span></div>
-      <div class="field"><label>硬止损线</label><input id="risk_stoploss" type="number" step="0.1"><span class="unit">%(入场价-)</span></div>
-      <div class="field"><label>时间止损</label><input id="risk_timestop" type="number"><span class="unit">分钟未盈利即平</span></div>
-      <div class="field"><label>熔断阈值</label><input id="risk_fuse" type="number"><span class="unit">连续亏损笔数</span></div>
-      <div class="field"><label>主力资金窄幅</label><input id="risk_flow" type="number"><span class="unit">万(低于此视为收窄)</span>
-      <div class="desc">单位：元，5000000=500万</div></div>
-    </div>
-  </section>
-</form>
+  <div class="card">
+    <h3>🛡️ 风控</h3>
+    <div class="row"><label>单笔仓位</label><input id="risk_position" type="number" step="0.05"><span class="unit">底仓%</span></div>
+    <div class="row"><label>最大并发</label><input id="risk_concurrent" type="number"><span class="unit">只</span></div>
+    <div class="row"><label>硬止损</label><input id="risk_stoploss" type="number" step="0.1"><span class="unit">% 入场-</span></div>
+    <div class="row"><label>时间止损</label><input id="risk_timestop" type="number"><span class="unit">分钟</span></div>
+    <div class="row"><label>熔断阈值</label><input id="risk_fuse" type="number"><span class="unit">连亏笔数</span></div>
+    <div class="row"><label>主力窄幅</label><input id="risk_flow" type="number"><span class="unit">万</span></div>
+  </div>
+
+  <!-- 策略开关 -->
+  <div class="card full-card" id="strategyCard" style="display:none;">
+    <h3>🔧 策略开关</h3>
+    <div class="strategy-grid" id="strategyGrid"></div>
+  </div>
+
+</div>
 
 <div class="actions">
-  <button class="btn-save" onclick="saveConfig()">💾 保存配置</button>
-  <button class="btn-reset" onclick="loadConfig()">🔄 重新加载</button>
-</div>
+  <button class="btn btn-save" onclick="saveConfig()">💾 保存配置</button>
 </div>
 
 <script>
 const DATA_URL = 'config.json';
+const STRAT_URL = 'strategy-config.json';
 
 function showToast(msg, type) {
   const t = document.createElement('div');
@@ -186,73 +177,25 @@ function showToast(msg, type) {
 
 function setStatus(ok, msg) {
   const s = document.getElementById('status');
-  s.className = `status ${ok?'ok':'err'}`;
+  s.className = 'status ' + (ok===true?'ok':ok===false?'err':'warn');
   s.textContent = msg;
 }
 
 async function loadConfig() {
   try {
-    const r = await fetch(DATA_URL + '?t=' + Date.now());
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const cfg = await r.json();
-    renderConfig(cfg);
-    setStatus(true, '配置已加载');
+    const [r1, r2] = await Promise.all([
+      fetch(DATA_URL + '?t=' + Date.now()),
+      fetch(STRAT_URL + '?t=' + Date.now()).catch(() => null)
+    ]);
+    if (!r1.ok) throw new Error('HTTP ' + r1.status);
+    _lastConfig = await r1.json();
+    if (r2 && r2.ok) _lastStrategy = await r2.json();
+    renderConfig(_lastConfig);
+    renderStrategies(_lastStrategy);
+    setStatus(true, '✅ 配置已加载');
   } catch(e) {
-    setStatus(false, '加载失败: ' + e.message);
-    showToast('无法加载配置文件', 'error');
+    setStatus(false, '❌ 加载失败: ' + e.message);
   }
-}
-
-function renderConfig(cfg) {
-  // 标的池
-  const a = cfg.stocks?.group_a || [];
-  const b = cfg.stocks?.group_b || [];
-  const names = cfg.stocks?.names || {};
-  const disabled = cfg.stocks?.t0_disabled || [];
-  renderPool('pool_a', a, names, disabled, 'a');
-  renderPool('pool_b', b, names, disabled, 'b');
-  renderPool('pool_disabled', disabled, names, disabled, 'disabled');
-
-  // 交易时段
-  if (cfg.trading?.sessions?.length >= 1) {
-    document.getElementById('sess1_start').value = cfg.trading.sessions[0].start || '';
-    document.getElementById('sess1_end').value = cfg.trading.sessions[0].end || '';
-  }
-  if (cfg.trading?.sessions?.length >= 2) {
-    document.getElementById('sess2_start').value = cfg.trading.sessions[1].start || '';
-    document.getElementById('sess2_end').value = cfg.trading.sessions[1].end || '';
-  }
-  setVal('phase_normal', cfg.trading?.phases?.normal_end);
-  setVal('phase_active', cfg.trading?.phases?.active_end);
-  setVal('phase_force', cfg.trading?.phases?.forceclose_end);
-
-  // 成本
-  setVal('commission_rate', cfg.costs?.commission_rate);
-  setVal('stamp_tax_rate', cfg.costs?.stamp_tax_rate);
-  setVal('min_profit_target', cfg.costs?.min_profit_target);
-  const rt = ((cfg.costs?.commission_rate||0)*2 + (cfg.costs?.stamp_tax_rate||0))*100;
-  document.getElementById('roundtrip_display').textContent = rt.toFixed(2);
-
-  // 趋势
-  setVal('ema_fast', cfg.trend?.ema_fast);
-  setVal('ema_slow', cfg.trend?.ema_slow);
-  setVal('trend_lookback', cfg.trend?.trend_lookback);
-  setVal('vwap_dev', cfg.vwap?.deviation_threshold);
-  setVal('orb_start', cfg.orb?.start);
-  setVal('orb_end', cfg.orb?.end);
-
-  // 信号
-  setVal('sig_threshold', cfg.signals?.threshold);
-  setVal('sig_cooldown', cfg.signals?.cooldown_minutes);
-  setVal('sig_minmove', cfg.signals?.min_price_move_pct);
-
-  // 风控
-  setVal('risk_position', cfg.risk?.max_position_ratio);
-  setVal('risk_concurrent', cfg.risk?.max_concurrent_positions);
-  setVal('risk_stoploss', cfg.risk?.hard_stop_loss_pct);
-  setVal('risk_timestop', cfg.risk?.time_stop_minutes);
-  setVal('risk_fuse', cfg.risk?.consecutive_loss_fuse);
-  setVal('risk_flow', cfg.risk?.main_flow_narrow_threshold);
 }
 
 function setVal(id, val) {
@@ -265,116 +208,114 @@ function renderPool(poolId, codes, names, disabled, group) {
     const name = names[code] || code;
     const isDisabled = disabled.includes(code);
     const cls = isDisabled ? 'disabled' : '';
-    const btn = isDisabled
-      ? `<button class="enable" title="启用" onclick="toggleDisable('${code}',false)">↩</button>`
-      : `<button title="禁用" onclick="toggleDisable('${code}',true)">✕</button>`;
-    const btn2 = (group === 'disabled')
-      ? '' : `<button title="移至禁用" style="color:#d29922" onclick="toggleDisable('${code}',true)">🔇</button>`;
-    return `<span class="stock-tag ${cls}">${name} (${code}) ${btn} ${btn2}</span>`;
+    if (isDisabled) {
+      return `<span class="stock-tag ${cls}">${name} (${code}) <button class="btn-e" title="启用" onclick="toggleDisable('${code}',false)">↩</button></span>`;
+    }
+    const btns = group === 'disabled' ? '' : `<button class="btn-d" title="移至禁用" onclick="toggleDisable('${code}',true)">🔇</button>`;
+    return `<span class="stock-tag ${cls}">${name} (${code}) <button class="btn-x" title="移出本组" onclick="removeStock('${code}','${group}')">✕</button> ${btns}</span>`;
   }).join('');
 }
 
-function collectConfig() {
-  const cfg = JSON.parse(JSON.stringify(_lastConfig)); // deep copy
-  if (!cfg.stocks) cfg.stocks = {};
+function renderConfig(cfg) {
+  const a = cfg.stocks?.group_a || [];
+  const b = cfg.stocks?.group_b || [];
+  const names = cfg.stocks?.names || {};
+  const disabled = cfg.stocks?.t0_disabled || [];
+  renderPool('pool_a', a, names, disabled, 'a');
+  renderPool('pool_b', b, names, disabled, 'b');
+  renderPool('pool_disabled', disabled, names, disabled, 'disabled');
 
-  // 更新的字段
-  const sessions = [];
-  const s1s = document.getElementById('sess1_start').value;
-  const s1e = document.getElementById('sess1_end').value;
-  if (s1s&&s1e) sessions.push({start:s1s,end:s1e,label:'上午盘'});
-  const s2s = document.getElementById('sess2_start').value;
-  const s2e = document.getElementById('sess2_end').value;
-  if (s2s&&s2e) sessions.push({start:s2s,end:s2e,label:'下午盘'});
-  if (sessions.length) cfg.trading.sessions = sessions;
+  if (cfg.trading?.sessions?.length >= 1) {
+    setVal('sess1_start', cfg.trading.sessions[0].start);
+    setVal('sess1_end', cfg.trading.sessions[0].end);
+  }
+  if (cfg.trading?.sessions?.length >= 2) {
+    setVal('sess2_start', cfg.trading.sessions[1].start);
+    setVal('sess2_end', cfg.trading.sessions[1].end);
+  }
+  setVal('phase_normal', cfg.trading?.phases?.normal_end);
+  setVal('phase_active', cfg.trading?.phases?.active_end);
+  setVal('phase_force', cfg.trading?.phases?.forceclose_end);
 
-  cfg.trading.phases.normal_end = document.getElementById('phase_normal').value;
-  cfg.trading.phases.active_end = document.getElementById('phase_active').value;
-  cfg.trading.phases.forceclose_end = document.getElementById('phase_force').value;
+  setVal('commission_rate', cfg.costs?.commission_rate);
+  setVal('stamp_tax_rate', cfg.costs?.stamp_tax_rate);
+  setVal('min_profit_target', cfg.costs?.min_profit_target);
+  const rt = ((cfg.costs?.commission_rate||0)*2 + (cfg.costs?.stamp_tax_rate||0))*100;
+  document.getElementById('roundtrip_display').textContent = rt.toFixed(2);
 
-  cfg.costs.commission_rate = parseFloat(document.getElementById('commission_rate').value)||0;
-  cfg.costs.stamp_tax_rate = parseFloat(document.getElementById('stamp_tax_rate').value)||0;
-  cfg.costs.min_profit_target = parseFloat(document.getElementById('min_profit_target').value)||0;
+  setVal('ema_fast', cfg.trend?.ema_fast);
+  setVal('ema_slow', cfg.trend?.ema_slow);
+  setVal('trend_lookback', cfg.trend?.trend_lookback);
+  setVal('vwap_dev', cfg.vwap?.deviation_threshold);
+  setVal('orb_start', cfg.orb?.start);
+  setVal('orb_end', cfg.orb?.end);
 
-  cfg.trend.ema_fast = parseInt(document.getElementById('ema_fast').value)||20;
-  cfg.trend.ema_slow = parseInt(document.getElementById('ema_slow').value)||60;
-  cfg.trend.trend_lookback = parseInt(document.getElementById('trend_lookback').value)||60;
-  cfg.vwap.deviation_threshold = parseFloat(document.getElementById('vwap_dev').value)||2;
-  cfg.orb.start = document.getElementById('orb_start').value;
-  cfg.orb.end = document.getElementById('orb_end').value;
+  setVal('sig_threshold', cfg.signals?.threshold);
+  setVal('sig_cooldown', cfg.signals?.cooldown_minutes);
+  setVal('sig_minmove', cfg.signals?.min_price_move_pct);
 
-  cfg.signals.threshold = parseFloat(document.getElementById('sig_threshold').value)||0.25;
-  cfg.signals.cooldown_minutes = parseInt(document.getElementById('sig_cooldown').value)||20;
-  cfg.signals.min_price_move_pct = parseFloat(document.getElementById('sig_minmove').value)||1.5;
-
-  cfg.risk.max_position_ratio = parseFloat(document.getElementById('risk_position').value)||0.25;
-  cfg.risk.max_concurrent_positions = parseInt(document.getElementById('risk_concurrent').value)||2;
-  cfg.risk.hard_stop_loss_pct = parseFloat(document.getElementById('risk_stoploss').value)||-1.5;
-  cfg.risk.time_stop_minutes = parseInt(document.getElementById('risk_timestop').value)||30;
-  cfg.risk.consecutive_loss_fuse = parseInt(document.getElementById('risk_fuse').value)||3;
-  cfg.risk.main_flow_narrow_threshold = parseInt(document.getElementById('risk_flow').value)||5000000;
-
-  return cfg;
+  setVal('risk_position', cfg.risk?.max_position_ratio);
+  setVal('risk_concurrent', cfg.risk?.max_concurrent_positions);
+  setVal('risk_stoploss', cfg.risk?.hard_stop_loss_pct);
+  setVal('risk_timestop', cfg.risk?.time_stop_minutes);
+  setVal('risk_fuse', cfg.risk?.consecutive_loss_fuse);
+  setVal('risk_flow', cfg.risk?.main_flow_narrow_threshold);
 }
 
-let _lastConfig = {};
+function renderStrategies(strat) {
+  if (!strat) return;
+  const card = document.getElementById('strategyCard');
+  const grid = document.getElementById('strategyGrid');
+  card.style.display = 'block';
 
-async function saveConfig() {
-  const cfg = collectConfig();
-  const json = JSON.stringify(cfg, null, 2);
-  
-  // 方案A: 通过后端服务直接写入文件
-  try {
-    const r = await fetch('http://127.0.0.1:8898/save', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: json
-    });
-    const result = await r.json();
-    if (result.ok) {
-      showToast(result.msg, 'success');
-      setStatus(true, '✅ 配置已保存，下次检查自动生效');
-      _lastConfig = cfg;
-      return;
-    }
-    throw new Error(result.msg || '未知错误');
-  } catch(e) {
-    // 方案B: 后端不可用 → 降级为文件下载
-    if (e.message.includes('Failed to fetch') || e.name === 'TypeError' || e.message.includes('NetworkError')) {
-      const blob = new Blob([json], {type:'application/json'});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = 'config.json';
-      a.click();
-      URL.revokeObjectURL(url);
-      showToast('💾 保存服务未运行，配置已下载 → 请复制到 data/config.json', 'success');
-      _lastConfig = cfg;
-    } else {
-      showToast('❌ 保存失败: ' + e.message, 'error');
-    }
+  const cats = {};
+  for (const [id, info] of Object.entries(strat.enabled || {})) {
+    // Try to get label from known strategies
+    const labels = {
+      A_vwap_low:'VWAP支撑',A_vwap_high:'VWAP压力',A_vwap_deviation:'VWAP偏离>2%',
+      B_vol_shrink_fall:'缩量下跌',B_vol_surge_rise:'放量反弹',B_vol_surge_stall:'放量滞涨',B_vol_shrink_drop:'缩量回落',
+      C_trend_long:'多头环境',C_trend_short:'空头环境',C_trend_range:'震荡环境',
+      D_divergence_low:'底背离',D_divergence_high:'顶背离',D_amplitude:'振幅>2%',
+      D_rsi_low:'RSI<30',D_rsi_high:'RSI>70',
+      E_orb_low:'ORB支撑',E_orb_high:'ORB压力',E_ma_support:'MA60支撑',
+      F_time_ok:'时间窗口',F_fat_tail:'肥尾过滤',
+      G_volume_dry:'地量',G_double_bottom:'二次探底',
+      H_fund_inflow:'主力流入',H_fund_outflow:'主力流出'
+    };
+    const cat = id.charAt(0);
+    if (!cats[cat]) cats[cat] = [];
+    cats[cat].push({id, label:labels[id]||id, enabled:info});
   }
+
+  const catNames = {A:'锚点',B:'量价',C:'趋势',D:'动量',E:'关键位',F:'过滤',G:'形态',H:'资金'};
+  grid.innerHTML = Object.entries(cats).map(([cat, items]) =>
+    `<div style="margin-bottom:8px;"><div style="font-size:11px;color:var(--text-dim);margin-bottom:3px;">${catNames[cat]||cat}</div>` +
+    items.map(s => {
+      const cls = s.enabled ? 'on' : 'off';
+      return `<div class="strat-chip" onclick="toggleStrategy('${s.id}',${!s.enabled})" style="cursor:pointer" title="点击切换">
+        <span class="dot ${cls}"></span>
+        <span class="name">${s.label}</span>
+        ${s.enabled?'':`<span style="font-size:10px;color:var(--red)">已禁用</span>`}
+      </div>`;
+    }).join('') + '</div>'
+  ).join('');
 }
 
-// 标的操作
-function addStock() {
-  const code = document.getElementById('new_code').value.trim();
-  const name = document.getElementById('new_name').value.trim();
-  const group = document.getElementById('new_group').value;
-  if (!code) return showToast('请输入股票代码', 'error');
+function toggleStrategy(id, enable) {
+  if (!_lastStrategy) return;
+  _lastStrategy.enabled[id] = enable;
+  renderStrategies(_lastStrategy);
+}
 
-  if (group === 'disabled') {
-    if (!_lastConfig.stocks.t0_disabled.includes(code))
-      _lastConfig.stocks.t0_disabled.push(code);
-  } else {
-    const key = group === 'a' ? 'group_a' : 'group_b';
-    if (!_lastConfig.stocks[key].includes(code))
-      _lastConfig.stocks[key].push(code);
+function removeStock(code, group) {
+  const key = group === 'a' ? 'group_a' : group === 'b' ? 'group_b' : null;
+  if (key) {
+    const arr = _lastConfig.stocks[key];
+    const idx = arr.indexOf(code);
+    if (idx >= 0) arr.splice(idx, 1);
   }
-  if (name) _lastConfig.stocks.names[code] = name;
   renderConfig(_lastConfig);
-  document.getElementById('new_code').value = '';
-  document.getElementById('new_name').value = '';
-  showToast(`已添加 ${code}`, 'success');
+  showToast(`已移除 ${code}`, 'success');
 }
 
 function toggleDisable(code, disable) {
@@ -388,23 +329,118 @@ function toggleDisable(code, disable) {
   showToast(`${disable?'已禁用':'已启用'} ${code}`, 'success');
 }
 
-// 初始化
-(async function() {
+function addStock() {
+  const code = document.getElementById('new_code').value.trim();
+  const name = document.getElementById('new_name').value.trim();
+  const group = document.getElementById('new_group').value;
+  if (!code) return showToast('请输入股票代码', 'error');
+  if (group === 'disabled') {
+    if (!_lastConfig.stocks.t0_disabled.includes(code))
+      _lastConfig.stocks.t0_disabled.push(code);
+  } else {
+    const key = group === 'a' ? 'group_a' : 'group_b';
+    if (!_lastConfig.stocks[key].includes(code))
+      _lastConfig.stocks[key].push(code);
+  }
+  if (name) _lastConfig.stocks.names[code] = name;
+  renderConfig(_lastConfig);
+  document.getElementById('new_code').value = '';
+  document.getElementById('new_name').value = '';
+}
+
+function collectConfig() {
+  const cfg = JSON.parse(JSON.stringify(_lastConfig));
+  if (!cfg.stocks) cfg.stocks = {};
+
+  const sessions = [];
+  const s1s = document.getElementById('sess1_start').value;
+  const s1e = document.getElementById('sess1_end').value;
+  if (s1s&&s1e) sessions.push({start:s1s,end:s1e,label:'上午盘'});
+  const s2s = document.getElementById('sess2_start').value;
+  const s2e = document.getElementById('sess2_end').value;
+  if (s2s&&s2e) sessions.push({start:s2s,end:s2e,label:'下午盘'});
+  if (sessions.length) cfg.trading.sessions = sessions;
+
+  cfg.trading.phases.normal_end = getVal('phase_normal');
+  cfg.trading.phases.active_end = getVal('phase_active');
+  cfg.trading.phases.forceclose_end = getVal('phase_force');
+
+  cfg.costs.commission_rate = parseFloat(getVal('commission_rate'))||0;
+  cfg.costs.stamp_tax_rate = parseFloat(getVal('stamp_tax_rate'))||0;
+  cfg.costs.min_profit_target = parseFloat(getVal('min_profit_target'))||0;
+
+  cfg.trend.ema_fast = parseInt(getVal('ema_fast'))||20;
+  cfg.trend.ema_slow = parseInt(getVal('ema_slow'))||60;
+  cfg.trend.trend_lookback = parseInt(getVal('trend_lookback'))||60;
+  cfg.vwap.deviation_threshold = parseFloat(getVal('vwap_dev'))||2;
+  cfg.orb.start = getVal('orb_start');
+  cfg.orb.end = getVal('orb_end');
+
+  cfg.signals.threshold = parseFloat(getVal('sig_threshold'))||0.25;
+  cfg.signals.cooldown_minutes = parseInt(getVal('sig_cooldown'))||20;
+  cfg.signals.min_price_move_pct = parseFloat(getVal('sig_minmove'))||1.5;
+
+  cfg.risk.max_position_ratio = parseFloat(getVal('risk_position'))||0.25;
+  cfg.risk.max_concurrent_positions = parseInt(getVal('risk_concurrent'))||2;
+  cfg.risk.hard_stop_loss_pct = parseFloat(getVal('risk_stoploss'))||-1.5;
+  cfg.risk.time_stop_minutes = parseInt(getVal('risk_timestop'))||30;
+  cfg.risk.consecutive_loss_fuse = parseInt(getVal('risk_fuse'))||3;
+  cfg.risk.main_flow_narrow_threshold = parseInt(getVal('risk_flow'))||5000000;
+
+  return cfg;
+}
+
+function getVal(id) { return document.getElementById(id).value; }
+
+let _lastConfig = {}, _lastStrategy = null;
+
+async function saveConfig() {
+  const cfg = collectConfig();
+  const json = JSON.stringify(cfg, null, 2);
+
+  // 同时保存策略配置
+  const tasks = [
+    fetch('http://127.0.0.1:8898/save', {method:'POST',headers:{'Content-Type':'application/json'},body:json})
+  ];
+  if (_lastStrategy) {
+    const sjson = JSON.stringify(_lastStrategy, null, 2);
+    tasks.push(
+      fetch('http://127.0.0.1:8898/save-strategy', {method:'POST',headers:{'Content-Type':'application/json'},body:sjson})
+    );
+  }
+
   try {
-    const r = await fetch(DATA_URL + '?t=' + Date.now());
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    _lastConfig = await r.json();
-    renderConfig(_lastConfig);
-    
-    // 检测保存后端
-    try {
-      await fetch('http://127.0.0.1:8898/', {signal: AbortSignal.timeout(1500)});
-      setStatus(true, '✅ 就绪 — 修改后直接保存到服务器');
-    } catch(e) {
-      setStatus(true, '⚠️ 就绪 — 保存服务离线，将使用下载方式');
+    const results = await Promise.all(tasks);
+    const r = await results[0].json();
+    if (r.ok) {
+      showToast(r.msg || '配置已保存，下次检查自动生效', 'success');
+      setStatus(true, '✅ 已保存');
+      _lastConfig = cfg;
+    } else {
+      throw new Error(r.msg);
     }
   } catch(e) {
-    setStatus(false, '❌ 无法加载 config.json: ' + e.message);
+    if (e.message.includes('Failed to fetch') || e.name === 'TypeError') {
+      const blob = new Blob([json], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'config.json';
+      a.click(); URL.revokeObjectURL(url);
+      showToast('💾 配置已下载 → 放入 data/ 目录替换', 'success');
+      _lastConfig = cfg;
+    } else {
+      showToast('❌ 保存失败: ' + e.message, 'error');
+    }
+  }
+}
+
+(async function() {
+  await loadConfig();
+  try {
+    await fetch('http://127.0.0.1:8898/', {signal:AbortSignal.timeout(1500)});
+    setStatus(true, '✅ 就绪 — 修改后直接保存');
+  } catch(e) {
+    setStatus('warn', '⚠️ 离线模式 — 保存时下载文件');
   }
 })();
 </script>
