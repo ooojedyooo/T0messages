@@ -106,6 +106,139 @@ CONSECUTIVE_LOSS_FUSE = 3     # 连续亏损3笔后当日停止开新仓
 STRATEGY_CONFIG_FILE = os.path.join(SIGNALS_DIR, "strategy-config.json")
 
 # ═══════════════════════════════════════════════════
+# 配置加载器 — 从 data/config.json 读取，缺失字段用代码默认值
+# ═══════════════════════════════════════════════════
+CONFIG_FILE = os.path.join(SIGNALS_DIR, "config.json")
+_config_mtime = 0  # 配置文件最后修改时间，用于热加载检测
+
+def _parse_time(time_str):
+    """解析 HH:MM 字符串为 (hour, minute) 元组"""
+    try:
+        h, m = map(int, time_str.split(":"))
+        return h, m
+    except Exception:
+        return 0, 0
+
+def load_config():
+    """加载配置文件，返回配置字典。文件不存在时返回默认值。"""
+    global _config_mtime
+    cfg = {}
+    
+    try:
+        if os.path.exists(CONFIG_FILE):
+            mtime = os.path.getmtime(CONFIG_FILE)
+            if mtime != _config_mtime:
+                with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+                    cfg = json.load(f)
+                _config_mtime = mtime
+                log(f"📋 配置已加载: {CONFIG_FILE}")
+    except Exception as e:
+        log(f"⚠️ 配置加载失败，使用默认值: {e}")
+        cfg = {}
+    
+    return cfg
+
+def apply_config(cfg):
+    """将配置字典应用到全局变量（热加载入口）"""
+    global GROUP_A, GROUP_B, ALL_CODES, STOCK_NAMES, T0_DISABLED
+    global TRADING_SESSIONS
+    global PHASE_NORMAL_END, PHASE_ACTIVE_END, PHASE_FORCECLOSE_END
+    global COMMISSION_RATE, STAMP_TAX_RATE, ROUND_TRIP_COST, MIN_PROFIT_TARGET, MIN_SPREAD
+    global EMA_FAST, EMA_SLOW, TREND_LOOKBACK
+    global VWAP_DEVIATION_THRESHOLD
+    global DEFAULT_THRESHOLD, SIGNAL_COOLDOWN_MINUTES, SIGNAL_MIN_PRICE_MOVE
+    global MAX_POSITION_RATIO, MAX_CONCURRENT_POSITIONS, HARD_STOP_LOSS, TIME_STOP_MINUTES, CONSECUTIVE_LOSS_FUSE
+    global MAIN_FLOW_NARROW_THRESHOLD
+    global ORB_START, ORB_END
+    
+    if not cfg:
+        return  # 空配置，用代码默认值
+    
+    # —— 标的池 ——
+    stocks = cfg.get("stocks", {})
+    if stocks.get("group_a"):
+        GROUP_A = list(stocks["group_a"])
+    if stocks.get("group_b"):
+        GROUP_B = list(stocks["group_b"])
+    ALL_CODES = GROUP_A + GROUP_B
+    if stocks.get("names"):
+        STOCK_NAMES.update(stocks["names"])
+    if "t0_disabled" in stocks:
+        T0_DISABLED = set(stocks["t0_disabled"])
+    
+    # —— 交易时段 ——
+    trading = cfg.get("trading", {})
+    if trading.get("sessions"):
+        TRADING_SESSIONS = []
+        for s in trading["sessions"]:
+            sh, sm = _parse_time(s.get("start", "09:30"))
+            eh, em = _parse_time(s.get("end", "15:00"))
+            TRADING_SESSIONS.append((sh, sm, eh, em))
+    phases = trading.get("phases", {})
+    if phases.get("normal_end"):
+        PHASE_NORMAL_END = _parse_time(phases["normal_end"])
+    if phases.get("active_end"):
+        PHASE_ACTIVE_END = _parse_time(phases["active_end"])
+    if phases.get("forceclose_end"):
+        PHASE_FORCECLOSE_END = _parse_time(phases["forceclose_end"])
+    
+    # —— 交易成本 ——
+    costs = cfg.get("costs", {})
+    if "commission_rate" in costs:
+        COMMISSION_RATE = float(costs["commission_rate"])
+    if "stamp_tax_rate" in costs:
+        STAMP_TAX_RATE = float(costs["stamp_tax_rate"])
+    ROUND_TRIP_COST = COMMISSION_RATE * 2 + STAMP_TAX_RATE
+    if "min_profit_target" in costs:
+        MIN_PROFIT_TARGET = float(costs["min_profit_target"])
+    MIN_SPREAD = MIN_PROFIT_TARGET + ROUND_TRIP_COST
+    
+    # —— 趋势 ——
+    trend = cfg.get("trend", {})
+    if "ema_fast" in trend:
+        EMA_FAST = int(trend["ema_fast"])
+    if "ema_slow" in trend:
+        EMA_SLOW = int(trend["ema_slow"])
+    if "trend_lookback" in trend:
+        TREND_LOOKBACK = int(trend["trend_lookback"])
+    
+    # —— VWAP ——
+    vwap = cfg.get("vwap", {})
+    if "deviation_threshold" in vwap:
+        VWAP_DEVIATION_THRESHOLD = float(vwap["deviation_threshold"])
+    
+    # —— ORB ——
+    orb = cfg.get("orb", {})
+    if orb.get("start"):
+        ORB_START = _parse_time(orb["start"])
+    if orb.get("end"):
+        ORB_END = _parse_time(orb["end"])
+    
+    # —— 信号 ——
+    signals = cfg.get("signals", {})
+    if "threshold" in signals:
+        DEFAULT_THRESHOLD = float(signals["threshold"])
+    if "cooldown_minutes" in signals:
+        SIGNAL_COOLDOWN_MINUTES = int(signals["cooldown_minutes"])
+    if "min_price_move_pct" in signals:
+        SIGNAL_MIN_PRICE_MOVE = float(signals["min_price_move_pct"])
+    
+    # —— 风控 ——
+    risk = cfg.get("risk", {})
+    if "max_position_ratio" in risk:
+        MAX_POSITION_RATIO = float(risk["max_position_ratio"])
+    if "max_concurrent_positions" in risk:
+        MAX_CONCURRENT_POSITIONS = int(risk["max_concurrent_positions"])
+    if "hard_stop_loss_pct" in risk:
+        HARD_STOP_LOSS = float(risk["hard_stop_loss_pct"])
+    if "time_stop_minutes" in risk:
+        TIME_STOP_MINUTES = int(risk["time_stop_minutes"])
+    if "consecutive_loss_fuse" in risk:
+        CONSECUTIVE_LOSS_FUSE = int(risk["consecutive_loss_fuse"])
+    if "main_flow_narrow_threshold" in risk:
+        MAIN_FLOW_NARROW_THRESHOLD = int(risk["main_flow_narrow_threshold"])
+
+# ═══════════════════════════════════════════════════
 # 20条策略定义（名称、标签、类别、默认启用）
 # ═══════════════════════════════════════════════════
 ALL_STRATEGIES = {
@@ -235,11 +368,23 @@ def is_trading_day():
         return False
     return True
 
+def safe_print(msg):
+    """安全打印，自动处理 Windows GBK 编码问题"""
+    try:
+        print(msg)
+    except UnicodeEncodeError:
+        # Fallback: 去除emoji后打印 + 完整信息写日志
+        import re
+        clean = re.sub(r'[^\u0000-\uFFFF]', '?', msg)
+        print(clean)
+    except Exception:
+        pass  # 输出失败也不影响主流程
+
 def log(msg):
     """同时输出到控制台和日志文件"""
     timestamp = datetime.now().strftime("%H:%M:%S")
     line = f"[{timestamp}] {msg}"
-    print(line)
+    safe_print(line)
     try:
         with open(LOG_FILE, "a", encoding="utf-8") as f:
             f.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {msg}\n")
@@ -453,44 +598,64 @@ def parse_markdown_table(text):
     return results
 
 def run_cli(args):
-    """执行 westock-data CLI 命令，返回解析后的字典列表"""
-    cmd = ["node", CLI_PATH] + args
-    cmd_desc = " ".join(args[:3])  # 日志用简短描述
-    try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=90,
-        )
-        # 防御性检查：Windows后台进程模式下stdout/stderr可能为None
-        stdout = result.stdout or ""
-        stderr = result.stderr or ""
+    """执行 westock-data CLI 命令，返回解析后的字典列表。自带重试"""
+    NODE_EXE = r"C:\Users\Ryan\.workbuddy\binaries\node\versions\22.22.2\node.exe"
+    CLI_DIR = os.path.dirname(CLI_PATH)
+    cmd_desc = " ".join(args[:3])
+    
+    for attempt in range(3):
+        try:
+            result = subprocess.run(
+                [NODE_EXE, CLI_PATH] + args,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=90,
+                cwd=CLI_DIR,
+                creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+            )
+            stdout = result.stdout or ""
+            stderr = result.stderr or ""
 
-        if result.returncode == 0 and stdout.strip():
-            parsed = parse_markdown_table(stdout)
-            if parsed:
-                return parsed
-            # 表格解析失败，记录原始输出前100字符用于排查
-            log(f"  CLI解析失败({cmd_desc}): {stdout.strip()[:100]}")
+            if result.returncode == 0 and stdout.strip():
+                parsed = parse_markdown_table(stdout)
+                if parsed:
+                    return parsed
+                if attempt == 2:
+                    log(f"  CLI解析失败({cmd_desc}): {stdout.strip()[:100]}")
+                time.sleep(1)
+                continue
+            else:
+                # 失败：等2秒重试
+                if attempt < 2:
+                    time.sleep(2)
+                    continue
+                err_detail = ""
+                if stderr.strip():
+                    err_detail = f" stderr:{stderr.strip()[:150]}"
+                if stdout.strip():
+                    err_detail += f" stdout_len:{len(stdout.strip())}"
+                else:
+                    err_detail += " (stdout empty)"
+                log(f"  CLI失败({cmd_desc}): RC={result.returncode}{err_detail}")
+                return None
+        except subprocess.TimeoutExpired:
+            if attempt < 2:
+                time.sleep(2)
+                continue
+            log(f"  CLI超时: {cmd_desc}")
             return None
-        else:
-            if stderr.strip():
-                log(f"  CLI错误({cmd_desc}): {stderr.strip()[:150]}")
-            elif result.returncode != 0:
-                log(f"  CLI退出码({cmd_desc}): {result.returncode}")
+        except FileNotFoundError:
+            log(f"  CLI未找到: node命令不可用")
             return None
-    except subprocess.TimeoutExpired:
-        log(f"  CLI超时: {cmd_desc}")
-        return None
-    except FileNotFoundError:
-        log(f"  CLI未找到: node命令不可用，请检查PATH")
-        return None
-    except Exception as e:
-        log(f"  CLI异常({cmd_desc}): {type(e).__name__}: {e}")
-        return None
+        except Exception as e:
+            if attempt < 2:
+                time.sleep(2)
+                continue
+            log(f"  CLI异常({cmd_desc}): {type(e).__name__}: {e}")
+            return None
+    return None
 
 # ═══════════════════════════════════════════════════
 # 数据拉取
@@ -916,6 +1081,11 @@ def get_pre_trade_pool(active_codes, quotes):
 
 def _time_to_minutes(time_str):
     """将HH:MM转为分钟数"""
+    try:
+        h, m = map(int, time_str.split(":"))
+        return h * 60 + m
+    except (ValueError, TypeError, AttributeError):
+        return None
 
 
 def fetch_minute_data(code):
@@ -1261,10 +1431,99 @@ def check_signal_cooling(code):
     cool = _strategy_state["coolingUntil"].get(code)
     if cool:
         cool_min = _time_to_minutes(cool)
+        if cool_min is None:
+            return False  # 解析失败，放行
         now_min = datetime.now().hour * 60 + datetime.now().minute
         if now_min < cool_min:
             return True  # 还在冷却期
     return False
+
+
+def check_pending_stop_take(signals_data, code, price):
+    """独立检查止损/止盈（不受冷却期影响）
+    
+    Returns:
+        (action, details_dict) or (None, None)
+        action: "stop_loss" | "take_profit" | None
+    """
+    stock_state = signals_data.get("stocks", {}).get(code)
+    if not stock_state:
+        return None, None
+    
+    pending = stock_state.get("pendingSignal")
+    if not pending:
+        return None, None
+    
+    name = STOCK_NAMES.get(code, code)
+    
+    # ═══ 止损检查 ═══
+    stop_loss = pending.get("stopLoss")
+    if stop_loss:
+        if pending["signalType"] == "low":
+            # 正T：低吸后，止损是下方价格
+            if price <= stop_loss:
+                spread = (price - pending["price"]) / pending["price"] * 100
+                net_return = spread - ROUND_TRIP_COST * 100
+                return "stop_loss", {
+                    "name": name, "code": code,
+                    "round": pending["round"], "type": pending["type"],
+                    "buyTime": pending["time"], "buyPrice": pending["price"],
+                    "sellTime": now_cst(), "sellPrice": price,
+                    "spread": round(spread, 2), "netReturn": round(net_return, 2),
+                    "reason": f"止损(成本{pending['price']}→{price}, 跌幅{abs(spread):.2f}%)"
+                }
+        else:
+            # 反T：高抛后，止损是上方价格
+            if price >= stop_loss:
+                spread = (pending["price"] - price) / pending["price"] * 100
+                net_return = spread - ROUND_TRIP_COST * 100
+                return "stop_loss", {
+                    "name": name, "code": code,
+                    "round": pending["round"], "type": pending["type"],
+                    "sellTime": pending["time"], "sellPrice": pending["price"],
+                    "buyTime": now_cst(), "buyPrice": price,
+                    "spread": round(spread, 2), "netReturn": round(net_return, 2),
+                    "reason": f"止损(成本{pending['price']}→{price}, 涨幅{abs(spread):.2f}%)"
+                }
+    
+    # ═══ 止盈检查（到达目标区即止盈） ═══
+    target_zone = pending.get("targetZone", "")
+    if target_zone:
+        try:
+            parts = target_zone.split("-")
+            if len(parts) == 2:
+                t1, t2 = float(parts[0]), float(parts[1])
+                t_low, t_high = min(t1, t2), max(t1, t2)
+                if pending["signalType"] == "low":
+                    # 正T：高抛目标价=target_high，到达98%即触发
+                    if price >= t_high * 0.98:
+                        spread = (price - pending["price"]) / pending["price"] * 100
+                        net_return = spread - ROUND_TRIP_COST * 100
+                        return "take_profit", {
+                            "name": name, "code": code,
+                            "round": pending["round"], "type": pending["type"],
+                            "buyTime": pending["time"], "buyPrice": pending["price"],
+                            "sellTime": now_cst(), "sellPrice": price,
+                            "spread": round(spread, 2), "netReturn": round(net_return, 2),
+                            "reason": f"止盈(目标区{t_low:.2f}-{t_high:.2f}, 现价{price:.2f})"
+                        }
+                else:
+                    # 反T：低吸目标价=target_low，到达102%即触发
+                    if price <= t_low * 1.02:
+                        spread = (pending["price"] - price) / pending["price"] * 100
+                        net_return = spread - ROUND_TRIP_COST * 100
+                        return "take_profit", {
+                            "name": name, "code": code,
+                            "round": pending["round"], "type": pending["type"],
+                            "sellTime": pending["time"], "sellPrice": pending["price"],
+                            "buyTime": now_cst(), "buyPrice": price,
+                            "spread": round(spread, 2), "netReturn": round(net_return, 2),
+                            "reason": f"止盈(目标区{t_low:.2f}-{t_high:.2f}, 现价{price:.2f})"
+                        }
+        except (ValueError, TypeError):
+            pass
+    
+    return None, None
 
 
 def update_signal_cooling(code):
@@ -2103,22 +2362,34 @@ def _generate_dashboard():
 
 
 def _ensure_data_server():
-    """确保 data/ 目录的微静态HTTP服务器在端口8899运行"""
+    """确保 data/ 目录的微静态HTTP服务器在端口8899运行 + 配置保存服务(8898)"""
     import socket
+    
+    # 静态文件服务器 (8899)
     s = socket.socket()
     port_in_use = s.connect_ex(('127.0.0.1', 8899)) == 0
     s.close()
-    if port_in_use:
-        return  # 已经在运行
+    if not port_in_use:
+        subprocess.Popen(
+            [sys.executable, '-m', 'http.server', '8899'],
+            cwd=DEFAULT_DATA_DIR,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+        )
+        log("  静态服务器: http://localhost:8899")
     
-    # 后台启动 http.server，cwd 指定为 data/ 目录
-    subprocess.Popen(
-        [sys.executable, '-m', 'http.server', '8899'],
-        cwd=DEFAULT_DATA_DIR,
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
-    )
-    log("  微静态服务器已启动: http://localhost:8899")
+    # 配置保存服务 (8898)
+    config_server = os.path.join(DEFAULT_DATA_DIR, "config-server.py")
+    s2 = socket.socket()
+    port2_in_use = s2.connect_ex(('127.0.0.1', 8898)) == 0
+    s2.close()
+    if not port2_in_use and os.path.exists(config_server):
+        subprocess.Popen(
+            [sys.executable, config_server, '8898'],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+        )
+        log("  配置保存服务: http://localhost:8898")
 
 def run_check(force=False):
     """执行一次完整的T+0信号检查。force=True时忽略交易时段限制（用于收盘日报）"""
@@ -2128,6 +2399,9 @@ def run_check(force=False):
         write_heartbeat(getattr(run_check, '_count', 0), False, 0, 0, "非交易时段")
         _generate_dashboard()
         return
+
+    # ═══ 配置热加载 ═══
+    apply_config(load_config())
 
     # 加载/初始化信号数据
     signals_data = load_signals()
@@ -2191,6 +2465,62 @@ def run_check(force=False):
         if price <= 0:
             continue
 
+        # ═══ 止损/止盈检查（不受冷却期影响） ═══
+        action, pair_data = check_pending_stop_take(signals_data, code, price)
+        if action:
+            name = STOCK_NAMES.get(code, code)
+            stock_state = signals_data["stocks"].get(code, {})
+            pending = stock_state.get("pendingSignal", {})
+            
+            # 完成配对
+            completed = {
+                "round": pair_data["round"],
+                "type": pair_data["type"],
+                "netReturn": pair_data["netReturn"],
+                "forceclose": False,
+            }
+            # 根据交易方向填充买卖字段
+            if pending.get("signalType") == "low":
+                completed["buyTime"] = pair_data.get("buyTime", pending.get("time", ""))
+                completed["buyPrice"] = pair_data.get("buyPrice", pending.get("price", 0))
+                completed["sellTime"] = pair_data["sellTime"]
+                completed["sellPrice"] = pair_data["sellPrice"]
+                completed["spread"] = pair_data["spread"]
+            else:
+                completed["sellTime"] = pair_data.get("sellTime", pending.get("time", ""))
+                completed["sellPrice"] = pair_data.get("sellPrice", pending.get("price", 0))
+                completed["buyTime"] = pair_data["buyTime"]
+                completed["buyPrice"] = pair_data["buyPrice"]
+                completed["spread"] = pair_data["spread"]
+            
+            stock_state.setdefault("completedRounds", []).append(completed)
+            stock_state["pendingSignal"] = None
+            signals_data["stocks"][code] = stock_state
+            signals_data.setdefault("completedPairs", []).append({
+                "stock": name, "code": code, **completed
+            })
+            
+            tag = "🛑止损" if action == "stop_loss" else "💰止盈"
+            icon = "🔴" if action == "stop_loss" else "🟢"
+            output_lines.append(
+                f"  [{tag}] {name}({code}): {completed['type']}第{completed['round']}轮 {icon}\n"
+                f"    {pair_data['reason']}\n"
+                f"    净收益：{completed['netReturn']:+.2f}% (差价{completed['spread']:+.2f}%)"
+            )
+            has_signal = True
+            
+            # 更新风控统计
+            if completed["netReturn"] <= 0:
+                _strategy_state["consecutiveLosses"] += 1
+                if _strategy_state["consecutiveLosses"] >= 3:
+                    _strategy_state["fuseBlown"] = True
+            else:
+                _strategy_state["consecutiveLosses"] = 0
+                _strategy_state["fuseBlown"] = False
+            
+            log(f"  {tag}: {name} {'正T' if pending.get('signalType')=='low' else '反T'}第{pair_data['round']}轮 {pair_data['reason']} 净{completed['netReturn']:+.2f}%")
+            continue  # 已处理，跳过信号评估
+        
         # 信号冷却检查
         if check_signal_cooling(code):
             continue
@@ -2243,7 +2573,12 @@ def run_check(force=False):
                     code, quote, vwap, trend, orb, ma20, ma60, side)
                 
                 _, total_enabled = get_active_strategies(side)
-                required = max(1, int(total_enabled * threshold))
+                normal_required = max(1, int(total_enabled * threshold))
+                # 有未配对持仓时降低配对门槛：减1级
+                if pending:
+                    required = max(1, normal_required - 1)
+                else:
+                    required = normal_required
                 
                 if met_count >= required:
                     update_signal_cooling(code)
@@ -2399,11 +2734,14 @@ def run_check(force=False):
     write_snapshot(quotes, techs, funds)
 
     # 输出结果
-    if has_signal:
-        for line in output_lines:
-            print(line)
-    else:
-        print(f"✅ T+0盯盘 | 策略:VWAP共振 | {now_cst()} | 阶段:{phase} | 🟢{trend_count.get('BULL',0)}只多头 🔴{trend_count.get('BEAR',0)}只空头 🟡{trend_count.get('RANGE',0)}只震荡")
+    try:
+        if has_signal:
+            for line in output_lines:
+                safe_print(line)
+        else:
+            safe_print(f"✅ T+0盯盘 | 策略:VWAP共振 | {now_cst()} | 阶段:{phase} | 🟢{trend_count.get('BULL',0)}只多头 🔴{trend_count.get('BEAR',0)}只空头 🟡{trend_count.get('RANGE',0)}只震荡")
+    except Exception:
+        pass  # 输出失败不影响核心流程
 
     # 写入心跳
     write_heartbeat(0, has_signal, 0, len(quotes))
@@ -2874,6 +3212,10 @@ def main():
 
     os.makedirs(SIGNALS_DIR, exist_ok=True)
 
+    # ═══ 加载配置文件 ═══
+    cfg = load_config()
+    apply_config(cfg)
+
     # 非测试模式下，检查是否交易日
     if not args.test and not args.once:
         if not is_trading_day():
@@ -2972,6 +3314,7 @@ def main():
                 break
             except Exception as e:
                 log(f"异常：{e}")
+                write_heartbeat(check_count, False, 0, 0, str(e))
                 time.sleep(60)
     finally:
         remove_pid()

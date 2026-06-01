@@ -1,0 +1,29 @@
+{
+  "threshold": 0.25,
+  "enabled": {
+    "A_vwap_low": true,
+    "A_vwap_high": true,
+    "A_vwap_deviation": true,
+    "B_vol_shrink_fall": true,
+    "B_vol_surge_rise": true,
+    "B_vol_surge_stall": true,
+    "B_vol_shrink_drop": true,
+    "C_trend_long": true,
+    "C_trend_short": true,
+    "C_trend_range": true,
+    "D_divergence_low": true,
+    "D_divergence_high": true,
+    "D_amplitude": false,
+    "D_rsi_low": true,
+    "D_rsi_high": true,
+    "E_orb_low": true,
+    "E_orb_high": true,
+    "E_ma_support": true,
+    "F_time_ok": false,
+    "F_fat_tail": false,
+    "G_volume_dry": true,
+    "G_double_bottom": true,
+    "H_fund_inflow": true,
+    "H_fund_outflow": true
+  }
+}
