@@ -61,6 +61,37 @@ ROUND_TRIP_COST = COMMISSION_RATE * 2 + STAMP_TAX_RATE  # 0.07%
 MIN_PROFIT_TARGET = 0.006   # 0.6% 净收益目标
 MIN_SPREAD = MIN_PROFIT_TARGET + ROUND_TRIP_COST  # 0.67% 最小差价
 
+# —— 仓位计算 ——
+POSITION_TARGET_AMOUNT = 20000   # 每笔目标金额(元)
+POSITION_MAX_AMOUNT = 30000      # 每笔最大金额(元), 超过则只买1手
+
+def get_lot_size(code):
+    """A股最小交易股数: 科创板(sh688)200股, 其他100股"""
+    return 200 if code.startswith("sh688") else 100
+
+def get_price_limit(code):
+    """A股涨跌停幅度: 科创/创业板20%, 主板10%"""
+    return 20 if code.startswith("sh688") or code.startswith("sz300") else 10
+
+def calc_shares(code, price):
+    """计算买入股数: 目标金额~2万, 凑整手, 不超过上限"""
+    lot = get_lot_size(code)
+    target_shares = POSITION_TARGET_AMOUNT / price
+    lots = max(1, round(target_shares / lot))
+    shares = lots * lot
+    
+    # 如果最低手数已超上限, 就用最低手数
+    if shares * price > POSITION_MAX_AMOUNT and lots > 1:
+        shares = lot
+    
+    # 科创板200股起, 主板100股起
+    return max(lot, shares)
+
+def calc_trade_amount(code, price):
+    """计算交易金额 = 股数 × 价格"""
+    shares = calc_shares(code, price)
+    return shares, shares * price
+
 # ═══════════════════════════════════════════════════
 # 日内强制闭环配置
 # ═══════════════════════════════════════════════════
@@ -1388,6 +1419,11 @@ def format_signal_card(code, name, direction, price, trend, vwap, strength, deta
     total = len(active_ids)
     required = max(1, int(total * threshold))
     
+    # 计算仓位金额
+    shares, amount = calc_trade_amount(code, price)
+    limit_pct = get_price_limit(code)
+    lot = get_lot_size(code)
+    
     vwap_str = f"VWAP={vwap}" if vwap else "VWAP=计算中"
     dev_str = ""
     if vwap and price:
@@ -1409,17 +1445,17 @@ def format_signal_card(code, name, direction, price, trend, vwap, strength, deta
 ║  趋势：{trend_emoji.get(trend, '⚪')} {trend_names.get(trend, '未知')} | {vwap_str}{dev_str}      ║
 ║  策略：{direction_emoji} {direction_name}               ║
 ║  ──────────────────────────────      ║
-║  当前价：{price}                        ║
+║  当前价：{price:.2f}  涨跌停：±{limit_pct}%             ║
 ║  入场区间：{entry_zone or '--'}                  ║
 ║  目标区间：{target_zone or '--'}                  ║
 ║  止损价：{stop_loss or '--'} (-{abs(HARD_STOP_LOSS)}%)               ║
-║  仓位建议：底仓{int(MAX_POSITION_RATIO*100)}%                      ║
+║  💰 仓位：{shares}股({int(amount):,}元) {lot}股/手      ║
 ║  ──────────────────────────────      ║
 ║  匹配策略（{strength}/{total} ≥ {required} 触发）：    ║
 {details_str}                         ║
 {extra}                         ║
 ║  ──────────────────────────────      ║
-║  池：{total}条启用 | 阈值：{int(threshold*100)}% | 仓位25%         ║
+║  池：{total}条启用 | 阈值：{int(threshold*100)}%            ║
 ║  ⚠️ 人工确认后执行，盈亏自负       ║
 ╚══════════════════════════════════════╝"""
     return card
@@ -1607,11 +1643,16 @@ def process_entry_signal(signals_data, code, direction, price, strength, details
                 # 重置该股票冷却期
                 _strategy_state["coolingUntil"].pop(code, None)
                 
+                # 计算金额
+                entry_p = pair.get("buyPrice", price) if pair["type"] == "正T" else pair.get("sellPrice", price)
+                shares, amount = calc_trade_amount(code, entry_p)
+                pnl_amount = amount * pair["netReturn"] / 100
+                
                 msg = (
                     f"  [✅ 配对成功] {name}({code})\n"
-                    f"    第{pair['round']}轮{pair['type']}: "
-                    f"{pair.get('buyTime','')}@{pair.get('buyPrice','')} → {pair.get('sellTime','')}@{pair.get('sellPrice','')}\n"
-                    f"    差价：{pair['spread']:+.2f}% | 净收益：{pair['netReturn']:+.2f}%"
+                    f"    第{pair['round']}轮{pair['type']}: {shares}股\n"
+                    f"    {pair.get('buyTime','')}@{pair.get('buyPrice','')} → {pair.get('sellTime','')}@{pair.get('sellPrice','')}\n"
+                    f"    差价：{pair['spread']:+.2f}% | 净收益：{pair['netReturn']:+.2f}% | 金额：{pnl_amount:+.0f}元"
                 )
                 log(f"配对成功: {name} {pair['type']}第{pair['round']}轮 +{pair['netReturn']:.2f}%")
                 
@@ -1656,12 +1697,17 @@ def process_entry_signal(signals_data, code, direction, price, strength, details
         round_num = len(stock_state.get("completedRounds", [])) + 1
         t_type = "正T" if direction == "low" else "反T"
         
+        # 计算仓位
+        shares, trade_amount = calc_trade_amount(code, price)
+        
         signal = {
             "round": round_num,
             "type": t_type,
             "signalType": direction,
             "time": time_str,
             "price": price,
+            "shares": shares,
+            "amount": round(trade_amount, 0),
             "entryZone": entry_zone,
             "stopLoss": stop_loss,
             "targetZone": target_zone,
@@ -1681,7 +1727,7 @@ def process_entry_signal(signals_data, code, direction, price, strength, details
             entry_zone, stop_loss, target_zone
         )
         
-        log(f"新信号: {name} {t_type}第{round_num}轮 {'低吸' if direction=='low' else '高抛'}@{price} 强度{strength}/6")
+        log(f"新信号: {name} {t_type}第{round_num}轮 {'低吸' if direction=='low' else '高抛'}@{price} {shares}股{int(trade_amount):,}元 强度{strength}/{len(details)}")
         
         return card
 
@@ -2512,10 +2558,16 @@ def run_check(force=False):
             
             tag = "🛑止损" if action == "stop_loss" else "💰止盈"
             icon = "🔴" if action == "stop_loss" else "🟢"
+            
+            # 计算金额
+            entry_px = pending.get("price", 0)
+            shares, amount = calc_trade_amount(code, entry_px)
+            pnl_amount = amount * completed["netReturn"] / 100
+            
             output_lines.append(
-                f"  [{tag}] {name}({code}): {completed['type']}第{completed['round']}轮 {icon}\n"
+                f"  [{tag}] {name}({code}): {completed['type']}第{completed['round']}轮 {icon} {shares}股\n"
                 f"    {pair_data['reason']}\n"
-                f"    净收益：{completed['netReturn']:+.2f}% (差价{completed['spread']:+.2f}%)"
+                f"    净收益：{completed['netReturn']:+.2f}% | 金额：{pnl_amount:+.0f}元 (差价{completed['spread']:+.2f}%)"
             )
             has_signal = True
             

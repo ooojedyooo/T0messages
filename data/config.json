@@ -60,6 +60,17 @@
     "hard_stop_loss_pct": -2.0,
     "time_stop_minutes": 30,
     "consecutive_loss_fuse": 2,
-    "main_flow_narrow_threshold": 5000000
+    "main_flow_narrow_threshold": 5000000,
+    "position_target_amount": 20000,
+    "max_position_amount": 30000
+  },
+
+  "market": {
+    "_note": "A股交易规则 — 按代码前缀自动匹配, 无需逐股配置",
+    "rules": {
+      "sh688": {"price_limit_pct": 20, "lot_size": 200, "desc": "科创板 20%涨跌停 200股起"},
+      "sz300": {"price_limit_pct": 20, "lot_size": 100, "desc": "创业板 20%涨跌停 100股/手"},
+      "default": {"price_limit_pct": 10, "lot_size": 100, "desc": "主板 10%涨跌停 100股/手"}
+    }
   }
 }
