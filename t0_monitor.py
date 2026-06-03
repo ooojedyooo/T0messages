@@ -1486,7 +1486,7 @@ def check_pending_stop_take(signals_data, code, price):
                     "reason": f"止损(成本{pending['price']}→{price}, 涨幅{abs(spread):.2f}%)"
                 }
     
-    # ═══ 止盈检查（到达目标区即止盈） ═══
+    # ═══ 止盈检查（价格进入目标区且盈利才触发） ═══
     target_zone = pending.get("targetZone", "")
     if target_zone:
         try:
@@ -1494,32 +1494,42 @@ def check_pending_stop_take(signals_data, code, price):
             if len(parts) == 2:
                 t1, t2 = float(parts[0]), float(parts[1])
                 t_low, t_high = min(t1, t2), max(t1, t2)
+                entry_price = pending["price"]
+                
                 if pending["signalType"] == "low":
-                    # 正T：高抛目标价=target_high，到达98%即触发
-                    if price >= t_high * 0.98:
-                        spread = (price - pending["price"]) / pending["price"] * 100
+                    # 正T（低吸→高抛）：必须盈利 + 接近目标区
+                    # 条件：价格 ≥ 入场价 且 (价格 ≥ target_low × 0.99 或 价格 ≥ target_high × 0.99)
+                    profit_ok = price >= entry_price * 1.001  # 至少涨0.1%覆盖滑点
+                    near_target = price >= t_low * 0.99
+                    if profit_ok and near_target:
+                        spread = (price - entry_price) / entry_price * 100
                         net_return = spread - ROUND_TRIP_COST * 100
-                        return "take_profit", {
-                            "name": name, "code": code,
-                            "round": pending["round"], "type": pending["type"],
-                            "buyTime": pending["time"], "buyPrice": pending["price"],
-                            "sellTime": now_cst(), "sellPrice": price,
-                            "spread": round(spread, 2), "netReturn": round(net_return, 2),
-                            "reason": f"止盈(目标区{t_low:.2f}-{t_high:.2f}, 现价{price:.2f})"
-                        }
+                        # 净收益至少为正才确认止盈
+                        if net_return > 0:
+                            return "take_profit", {
+                                "name": name, "code": code,
+                                "round": pending["round"], "type": pending["type"],
+                                "buyTime": pending["time"], "buyPrice": entry_price,
+                                "sellTime": now_cst(), "sellPrice": price,
+                                "spread": round(spread, 2), "netReturn": round(net_return, 2),
+                                "reason": f"止盈(目标区{t_low:.2f}-{t_high:.2f}, 现价{price:.2f})"
+                            }
                 else:
-                    # 反T：低吸目标价=target_low，到达102%即触发
-                    if price <= t_low * 1.02:
-                        spread = (pending["price"] - price) / pending["price"] * 100
+                    # 反T（高抛→低吸）：必须盈利 + 接近目标区
+                    profit_ok = price <= entry_price * 0.999  # 至少跌0.1%
+                    near_target = price <= t_high * 1.01
+                    if profit_ok and near_target:
+                        spread = (entry_price - price) / entry_price * 100
                         net_return = spread - ROUND_TRIP_COST * 100
-                        return "take_profit", {
-                            "name": name, "code": code,
-                            "round": pending["round"], "type": pending["type"],
-                            "sellTime": pending["time"], "sellPrice": pending["price"],
-                            "buyTime": now_cst(), "buyPrice": price,
-                            "spread": round(spread, 2), "netReturn": round(net_return, 2),
-                            "reason": f"止盈(目标区{t_low:.2f}-{t_high:.2f}, 现价{price:.2f})"
-                        }
+                        if net_return > 0:
+                            return "take_profit", {
+                                "name": name, "code": code,
+                                "round": pending["round"], "type": pending["type"],
+                                "sellTime": pending["time"], "sellPrice": entry_price,
+                                "buyTime": now_cst(), "buyPrice": price,
+                                "spread": round(spread, 2), "netReturn": round(net_return, 2),
+                                "reason": f"止盈(目标区{t_low:.2f}-{t_high:.2f}, 现价{price:.2f})"
+                            }
         except (ValueError, TypeError):
             pass
     
@@ -2551,10 +2561,13 @@ def run_check(force=False):
         vwap = calc_vwap(minute_bars)
         orb = _strategy_state["orbCache"].get(code, {})
 
-        # 根据趋势确定主策略方向
+        # 根据趋势确定主策略方向（带VWAP极端偏离保护）
         if phase in ("normal", "active"):
             stock_state = get_stock_state(signals_data, code)
             pending = stock_state.get("pendingSignal")
+            
+            # VWAP偏离保护：日内极端价位时反转方向
+            vwap_deviation = (price - vwap) / vwap * 100 if vwap and vwap > 0 else 0
             
             # 决定检查方向
             check_sides = []
@@ -2562,9 +2575,17 @@ def run_check(force=False):
                 # 有未配对：只检查反向
                 check_sides = ["high"] if pending["signalType"] == "low" else ["low"]
             elif trend == "BULL":
-                check_sides = ["low"]  # 多头只做正T
+                if vwap_deviation > 1.5:
+                    # 价格远超VWAP（涨停/接近涨停）：多头趋势反转，只做高抛
+                    check_sides = ["high"]
+                else:
+                    check_sides = ["low"]  # 多头只做正T
             elif trend == "BEAR":
-                check_sides = ["high"]  # 空头只做反T
+                if vwap_deviation < -1.5:
+                    # 价格远低于VWAP（跌停/接近跌停）：空头趋势反转，只做低吸
+                    check_sides = ["low"]
+                else:
+                    check_sides = ["high"]  # 空头只做反T
             else:
                 check_sides = ["low", "high"]  # 震荡双向
             
