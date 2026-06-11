@@ -305,10 +305,11 @@ function renderStocks(data) {{
       completedHtml += `
         <div class="signal-card completed">
           <div class="sig-row">
-            <span class="sig-label done">&#x2705; ${{r.type}}第${{r.round}}轮${{fc}}</span>
+            <span class="sig-label done">&#x2705; ${{r.type}}第${{r.round}}轮${{fc}} ${{r.shares || '?'}}股</span>
             <span style="color:${{r.netReturn >= 0 ? 'var(--green)' : 'var(--red)'}}">${{r.netReturn >= 0 ? '+' : ''}}${{r.netReturn.toFixed(2)}}%</span>
           </div>
           <div class="sig-detail">${{isZheng ? r.buyTime + '买@' + r.buyPrice + ' \u2192 ' + r.sellTime + '卖@' + r.sellPrice : r.sellTime + '卖@' + r.sellPrice + ' \u2192 ' + r.buyTime + '买@' + r.buyPrice}}</div>
+          <div class="sig-detail" style="color:var(--text-dim);font-size:11px">${{r.amount || '?' | Math.round}}元 / 盈亏：${{(r.pnlAmount || 0) >= 0 ? '+' : ''}}${{(r.pnlAmount || 0).toFixed(0)}}元</div>
         </div>`;
     }});
     
@@ -339,15 +340,16 @@ function renderStocks(data) {{
       pendingHtml = `
         <div class="signal-card pending">
           <div class="sig-row">
-            <span class="sig-label">&#x23f3; ${{pendingSignal.type}}第${{pendingSignal.round}}轮 ${{trendIcon}}${{pendingSignal.trend || '?'}} ${{dirLabel}}@${{pendingSignal.price}}</span>
+            <span class="sig-label">&#x23f3; ${{pendingSignal.type}}第${{pendingSignal.round}}轮 ${{trendIcon}}${{pendingSignal.trend || '?'}} ${{dirLabel}}@${{pendingSignal.price}} ${{pendingSignal.shares || '?'}}股</span>
             <span class="sig-strength" title="${{metCount}}条策略满足">${{strengthText}}</span>
           </div>
           <div class="sig-detail" style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
             <span>入场：${{pendingSignal.entryZone || '--'}}</span>
             <span>目标：${{pendingSignal.targetZone || '--'}}</span>
-            <span style="color:var(--red)">止损：${{pendingSignal.stopLoss || '--'}} (-1.5%)</span>
+            <span style="color:var(--red)">止损：${{pendingSignal.stopLoss || '--'}} (<br/>-${{(pendingSignal.amount || 0) * 0.02 / pendingSignal.price | 0)}}元)</span>
             <span>${{vwapHtml}}</span>
           </div>
+          <div class="sig-detail" style="color:var(--text-dim);font-size:11px">金额：${{pendingSignal.amount || '?'}}元</div>
           ${{conditionsHtml}}
         </div>`;
     }}
@@ -385,6 +387,8 @@ function renderStats(data) {{
   const completed = sig.completedPairs || [];
   const totalPairs = completed.length;
   const totalReturn = completed.reduce((s, p) => s + (p.netReturn || 0), 0);
+  const totalPnlAmount = completed.reduce((s, p) => s + (p.pnlAmount || 0), 0);
+  const totalTradeAmount = completed.reduce((s, p) => s + (p.amount || 0), 0);
   const winning = completed.filter(p => (p.netReturn || 0) > 0).length;
   const winRate = totalPairs > 0 ? (winning / totalPairs * 100).toFixed(1) : "--";
   const avgReturn = totalPairs > 0 ? (totalReturn / totalPairs).toFixed(2) : "--";
@@ -405,16 +409,18 @@ function renderStats(data) {{
       <div class="stat-value" style="color:var(--blue)">${{totalPairs}}<span style="font-size:14px">轮</span></div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">总收益</div>
+      <div class="stat-label">总收益 / 金额</div>
       <div class="stat-value" style="color:${{totalReturn >= 0 ? 'var(--green)' : 'var(--red)'}}">${{totalReturn >= 0 ? '+' : ''}}${{totalReturn.toFixed(2)}}%</div>
+      <div style="font-size:13px;color:var(--text-dim);margin-top:2px">${{totalPnlAmount >= 0 ? '+' : ''}}${{totalPnlAmount.toFixed(0)}}元</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">胜率 / 均笔</div>
       <div class="stat-value" style="font-size:20px;color:var(--blue)">${{winRate}}% / ${{avgReturn}}%</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">待配对 / 强平</div>
-      <div class="stat-value" style="color:${{pendingCount > 0 ? 'var(--yellow)' : 'var(--green)'}}">${{pendingCount}}笔 / ${{forcedCount}}笔</div>
+      <div class="stat-label">交易额 / 强平</div>
+      <div class="stat-value" style="font-size:15px;color:var(--text-bright)">${{totalTradeAmount.toFixed(0)}}元</div>
+      <div class="stat-value" style="color:${{pendingCount > 0 ? 'var(--yellow)' : 'var(--green)'}}">${{pendingCount}}笔待配对 / ${{forcedCount}}强平</div>
     </div>
   `;
 }}

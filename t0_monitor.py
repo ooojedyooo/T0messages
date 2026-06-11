@@ -1626,7 +1626,7 @@ def process_entry_signal(signals_data, code, direction, price, strength, details
         
         # 反向信号：配对成功
         if existing_type != direction:
-            pair = _create_pair(pending, direction, price, time_str)
+            pair = _create_pair(pending, direction, price, time_str, code)
             if pair and pair.get("spread", 0) > MIN_SPREAD:
                 # 附加入场信号条件到配对记录（供历史分析）
                 pair["entryConditions"] = pending.get("details", [])
@@ -1643,16 +1643,11 @@ def process_entry_signal(signals_data, code, direction, price, strength, details
                 # 重置该股票冷却期
                 _strategy_state["coolingUntil"].pop(code, None)
                 
-                # 计算金额
-                entry_p = pair.get("buyPrice", price) if pair["type"] == "正T" else pair.get("sellPrice", price)
-                shares, amount = calc_trade_amount(code, entry_p)
-                pnl_amount = amount * pair["netReturn"] / 100
-                
                 msg = (
                     f"  [✅ 配对成功] {name}({code})\n"
-                    f"    第{pair['round']}轮{pair['type']}: {shares}股\n"
+                    f"    第{pair['round']}轮{pair['type']}: {pair.get('shares',0)}股\n"
                     f"    {pair.get('buyTime','')}@{pair.get('buyPrice','')} → {pair.get('sellTime','')}@{pair.get('sellPrice','')}\n"
-                    f"    差价：{pair['spread']:+.2f}% | 净收益：{pair['netReturn']:+.2f}% | 金额：{pnl_amount:+.0f}元"
+                    f"    差价：{pair['spread']:+.2f}% | 净收益：{pair['netReturn']:+.2f}% | 金额：{pair.get('pnlAmount',0):+.0f}元"
                 )
                 log(f"配对成功: {name} {pair['type']}第{pair['round']}轮 +{pair['netReturn']:.2f}%")
                 
@@ -1739,12 +1734,16 @@ def _compute_cooling_until():
     return f"{cool_until // 60:02d}:{cool_until % 60:02d}"
 
 
-def _create_pair(pending, direction, price, time_str):
+def _create_pair(pending, direction, price, time_str, code=""):
     """创建配对记录"""
+    entry_px = pending["price"]
+    shares, amount = calc_trade_amount(code, entry_px) if code else (0, 0)
+    
     if pending["signalType"] == "low" and direction == "high":
         # 正T配对：低吸→高抛
         spread = (price - pending["price"]) / pending["price"] * 100
         net = spread - ROUND_TRIP_COST * 100
+        pnl = amount * net / 100
         return {
             "round": pending["round"],
             "type": "正T",
@@ -1754,11 +1753,15 @@ def _create_pair(pending, direction, price, time_str):
             "sellPrice": price,
             "spread": round(spread, 2),
             "netReturn": round(net, 2),
+            "shares": shares,
+            "amount": round(amount, 0),
+            "pnlAmount": round(pnl, 0),
         }
     elif pending["signalType"] == "high" and direction == "low":
         # 反T配对：高抛→低吸
         spread = (pending["price"] - price) / pending["price"] * 100
         net = spread - ROUND_TRIP_COST * 100
+        pnl = amount * net / 100
         return {
             "round": pending["round"],
             "type": "反T",
@@ -1768,6 +1771,9 @@ def _create_pair(pending, direction, price, time_str):
             "buyPrice": price,
             "spread": round(spread, 2),
             "netReturn": round(net, 2),
+            "shares": shares,
+            "amount": round(amount, 0),
+            "pnlAmount": round(pnl, 0),
         }
     return None
 
@@ -2529,11 +2535,18 @@ def run_check(force=False):
             pending = stock_state.get("pendingSignal", {})
             
             # 完成配对
+            entry_px = pending.get("price", 0)
+            shares, amount = calc_trade_amount(code, entry_px)
+            pnl_amount = amount * pair_data["netReturn"] / 100
+            
             completed = {
                 "round": pair_data["round"],
                 "type": pair_data["type"],
                 "netReturn": pair_data["netReturn"],
                 "forceclose": False,
+                "shares": shares,
+                "amount": round(amount, 0),
+                "pnlAmount": round(pnl_amount, 0),
             }
             # 根据交易方向填充买卖字段
             if pending.get("signalType") == "low":
@@ -2559,15 +2572,10 @@ def run_check(force=False):
             tag = "🛑止损" if action == "stop_loss" else "💰止盈"
             icon = "🔴" if action == "stop_loss" else "🟢"
             
-            # 计算金额
-            entry_px = pending.get("price", 0)
-            shares, amount = calc_trade_amount(code, entry_px)
-            pnl_amount = amount * completed["netReturn"] / 100
-            
             output_lines.append(
-                f"  [{tag}] {name}({code}): {completed['type']}第{completed['round']}轮 {icon} {shares}股\n"
+                f"  [{tag}] {name}({code}): {completed['type']}第{completed['round']}轮 {icon} {completed['shares']}股\n"
                 f"    {pair_data['reason']}\n"
-                f"    净收益：{completed['netReturn']:+.2f}% | 金额：{pnl_amount:+.0f}元 (差价{completed['spread']:+.2f}%)"
+                f"    净收益：{completed['netReturn']:+.2f}% | 金额：{completed['pnlAmount']:+.0f}元 (差价{completed['spread']:+.2f}%)"
             )
             has_signal = True
             
@@ -2876,10 +2884,13 @@ def _force_close_pending(signals_data, quotes, phase):
         time_str = now_cst()
         
         # 计算配对结果
+        shares, amount = calc_trade_amount(code, pending["price"])
+        
         if pending["signalType"] == "low":
             # 正T：低吸后高抛
             spread = (current_price - pending["price"]) / pending["price"] * 100
             net_return = spread - ROUND_TRIP_COST * 100
+            pnl = amount * net_return / 100
             pair = {
                 "round": pending["round"],
                 "type": "正T",
@@ -2889,21 +2900,25 @@ def _force_close_pending(signals_data, quotes, phase):
                 "sellPrice": current_price,
                 "spread": round(spread, 2),
                 "netReturn": round(net_return, 2),
+                "shares": shares,
+                "amount": round(amount, 0),
+                "pnlAmount": round(pnl, 0),
                 "forceclose": True,
                 "forceclosePhase": phase,
             }
             tag = "⚠️硬截止平仓" if phase == "hardclose" else "⚡强制收尾"
             msgs.append(
                 f"  【{tag} — 正T】\n"
-                f"  {name}({code}): 第{pending['round']}轮正T 强制闭环\n"
+                f"  {name}({code}): 第{pending['round']}轮正T {shares}股 强制闭环\n"
                 f"    {pending['time']}低吸@{pending['price']} → {time_str}高抛@{current_price}\n"
-                f"    差价：{spread:+.2f}% | 扣费后净收益：{net_return:+.2f}%\n"
+                f"    差价：{spread:+.2f}% | 净收益：{net_return:+.2f}% | 金额：{pnl:+.0f}元\n"
                 f"    📌 底仓保持不变，T仓已闭环"
             )
         else:
             # 反T：高抛后低吸
             spread = (pending["price"] - current_price) / pending["price"] * 100
             net_return = spread - ROUND_TRIP_COST * 100
+            pnl = amount * net_return / 100
             pair = {
                 "round": pending["round"],
                 "type": "反T",
@@ -2913,15 +2928,18 @@ def _force_close_pending(signals_data, quotes, phase):
                 "buyPrice": current_price,
                 "spread": round(spread, 2),
                 "netReturn": round(net_return, 2),
+                "shares": shares,
+                "amount": round(amount, 0),
+                "pnlAmount": round(pnl, 0),
                 "forceclose": True,
                 "forceclosePhase": phase,
             }
             tag = "⚠️硬截止平仓" if phase == "hardclose" else "⚡强制收尾"
             msgs.append(
                 f"  【{tag} — 反T】\n"
-                f"  {name}({code}): 第{pending['round']}轮反T 强制闭环\n"
+                f"  {name}({code}): 第{pending['round']}轮反T {shares}股 强制闭环\n"
                 f"    {pending['time']}高抛@{pending['price']} → {time_str}低吸@{current_price}\n"
-                f"    差价：{spread:+.2f}% | 扣费后净收益：{net_return:+.2f}%\n"
+                f"    差价：{spread:+.2f}% | 净收益：{net_return:+.2f}% | 金额：{pnl:+.0f}元\n"
                 f"    📌 底仓保持不变，T仓已闭环"
             )
         
