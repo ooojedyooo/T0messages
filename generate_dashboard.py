@@ -309,7 +309,7 @@ function renderStocks(data) {{
             <span style="color:${{r.netReturn >= 0 ? 'var(--green)' : 'var(--red)'}}">${{r.netReturn >= 0 ? '+' : ''}}${{r.netReturn.toFixed(2)}}%</span>
           </div>
           <div class="sig-detail">${{isZheng ? r.buyTime + '买@' + r.buyPrice + ' \u2192 ' + r.sellTime + '卖@' + r.sellPrice : r.sellTime + '卖@' + r.sellPrice + ' \u2192 ' + r.buyTime + '买@' + r.buyPrice}}</div>
-          <div class="sig-detail" style="color:var(--text-dim);font-size:11px">${{r.amount || '?' | Math.round}}元 / 盈亏：${{(r.pnlAmount || 0) >= 0 ? '+' : ''}}${{(r.pnlAmount || 0).toFixed(0)}}元</div>
+          <div class="sig-detail" style="color:var(--text-dim);font-size:11px">${{Math.round(r.amount || 0)}}元 / 盈亏：${{(r.pnlAmount || 0) >= 0 ? '+' : ''}}${{(r.pnlAmount || 0).toFixed(0)}}元</div>
         </div>`;
     }});
     
