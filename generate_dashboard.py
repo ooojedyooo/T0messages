@@ -308,13 +308,16 @@ function renderStocks(data) {{
       const pnlSign = pnl >= 0 ? "+" : "";
       const pct = (r.netReturn || 0).toFixed(2);
       const pctSign = (r.netReturn || 0) >= 0 ? "+" : "";
+      const tradeTime = isZheng ? (r.buyTime + '买 \u2192 ' + r.sellTime + '卖') : (r.sellTime + '卖 \u2192 ' + r.buyTime + '买');
+      const tradePrice = isZheng ? (r.buyPrice + ' \u2192 ' + r.sellPrice) : (r.sellPrice + ' \u2192 ' + r.buyPrice);
       completedHtml += [
         '<div class="signal-card completed">',
         '<div class="sig-row">',
         '<span class="sig-label done">&#x2705; ' + r.type + '第' + r.round + '轮' + fc + ' ' + sh + '股</span>',
         '<span style="color:' + ((r.netReturn||0) >= 0 ? 'var(--green)' : 'var(--red)') + '">' + pctSign + pct + '%</span>',
         '</div>',
-        '<div class="sig-detail">' + (isZheng ? r.buyTime + '买@' + r.buyPrice + ' \\u2192 ' + r.sellTime + '卖@' + r.sellPrice : r.sellTime + '卖@' + r.sellPrice + ' \\u2192 ' + r.buyTime + '买@' + r.buyPrice) + '</div>',
+        '<div class="sig-detail" style="color:var(--yellow);font-size:11px">&#x1f552; ' + tradeTime + '</div>',
+        '<div class="sig-detail">' + tradePrice + '</div>',
         '<div class="sig-detail" style="color:var(--text-dim);font-size:11px">' + amt + '元 / 盈亏：' + pnlSign + pnl + '元</div>',
         '</div>'
       ].join("");
@@ -348,6 +351,7 @@ function renderStocks(data) {{
       const stopAmt = pendingSignal.amount ? Math.round(pendingSignal.amount * 0.02) : 0;
       const pAmt = pendingSignal.amount || 0;
       const pSh = pendingSignal.shares || 0;
+      const pTime = pendingSignal.time || '';
       
       pendingHtml = [
         '<div class="signal-card pending">',
@@ -355,6 +359,7 @@ function renderStocks(data) {{
         '<span class="sig-label">&#x23f3; ' + pendingSignal.type + '第' + pendingSignal.round + '轮 ' + trendIcon + (pendingSignal.trend||'?') + ' ' + dirLabel + '@' + pendingSignal.price + ' ' + pSh + '股</span>',
         '<span class="sig-strength" title="' + metCount + '条策略满足">' + strengthText + '</span>',
         '</div>',
+        '<div class="sig-detail" style="color:var(--yellow);font-size:11px;margin-bottom:4px">&#x1f552; 信号时间：' + pTime + '</div>',
         '<div class="sig-detail" style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">',
         '<span>入场：' + (pendingSignal.entryZone||'--') + '</span>',
         '<span>目标：' + (pendingSignal.targetZone||'--') + '</span>',
