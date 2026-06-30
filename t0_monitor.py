@@ -2080,12 +2080,14 @@ def init_signals():
     """初始化今日信号，同时归档昨日数据到 history/"""
     _archive_yesterday()
     
-    return {
+    data = {
         "date": today_str(),
         "stocks": {},
         "allSignals": [],
         "completedPairs": [],
     }
+    save_signals(data)  # 立即写盘，确保信号文件日期为今天
+    return data
 
 
 def _archive_yesterday():
