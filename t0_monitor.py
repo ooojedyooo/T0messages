@@ -18,7 +18,8 @@ from datetime import datetime, date, timedelta
 # ═══════════════════════════════════════════════════
 # 配置
 # ═══════════════════════════════════════════════════
-CLI_PATH = r"C:\Users\Ryan\.workbuddy\plugins\marketplaces\cb_teams_marketplace\plugins\finance-data\skills\westock-data\scripts\index.js"
+# CLI_PATH = r"C:\Users\Ryan\.workbuddy\plugins\marketplaces\cb_teams_marketplace\plugins\finance-data\skills\westock-data\scripts\index.js"
+CLI_PATH = r"C:\Users\Ryan\AppData\Local\Programs\WorkBuddy\resources\app.asar.unpacked\resources\builtin-skills\westock-data\scripts\index.js"
 
 # 数据目录：默认放在脚本同级data/目录，也可通过 --data-dir 参数覆盖
 _SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
