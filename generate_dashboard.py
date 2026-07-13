@@ -428,6 +428,114 @@ function renderStocks(data) {{
   grid.innerHTML = html;
 }}
 
+function renderHistoryTable(data) {{
+  const grid = document.getElementById("stockGrid");
+  const sig = data.signals;
+  if (!sig || !sig.stocks) {{ grid.innerHTML = ""; return; }}
+  
+  // Collect all trades with stock info
+  let rows = [];
+  for (const code of ALL_CODES) {{
+    const ss = sig.stocks[code];
+    if (!ss || !ss.completedRounds) continue;
+    const name = ss.name || STOCK_NAMES[code] || code;
+    ss.completedRounds.forEach(function(r) {{
+      const isZheng = r.type === "正T";
+      const ret = (r.netReturn || 0).toFixed(2);
+      const retSign = (r.netReturn || 0) >= 0 ? "+" : "";
+      const pnl = Math.round(r.pnlAmount || 0);
+      const pnlSign = pnl >= 0 ? "+" : "";
+      const bt = r.buyTime || "";
+      const st = r.sellTime || "";
+      const bp = r.buyPrice || 0;
+      const sp = r.sellPrice || 0;
+      const fc = r.forceclose ? " ⚡" : "";
+      rows.push({{
+        name: name, code: code, round: r.round, type: r.type,
+        bt: bt, bp: bp, st: st, sp: sp,
+        ret: ret, retSign: retSign, pnl: pnl, pnlSign: pnlSign,
+        isZheng: isZheng, fc: fc,
+        retNum: r.netReturn || 0
+      }});
+    }});
+  }}
+  
+  if (rows.length === 0) {{ grid.innerHTML = '<div class="loading">该日无交易记录</div>'; return; }}
+  
+  // Sort by time
+  rows.sort(function(a,b) {{ return a.bt.localeCompare(b.bt) || a.round - b.round; }});
+  
+  // Compute per-stock totals
+  let stockMap = {{}};
+  rows.forEach(function(r) {{
+    if (!stockMap[r.code]) stockMap[r.code] = {{ name: r.name, totalRet: 0, totalPnl: 0, count: 0, wins: 0 }};
+    stockMap[r.code].totalRet += r.retNum;
+    stockMap[r.code].totalPnl += r.pnl;
+    stockMap[r.code].count++;
+    if (r.retNum > 0) stockMap[r.code].wins++;
+  }});
+  
+  let html = '<div class="section-title">&#x1f4cb; ' + (sig.date || "") + ' 交易明细 (' + rows.length + '笔)</div>';
+  html += '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;color:var(--text)">';
+  html += '<thead><tr style="background:var(--surface);text-align:left;color:var(--text-dim)">';
+  html += '<th style="padding:8px 6px">股票</th><th>轮</th><th>类型</th><th style="min-width:100px">买入</th><th style="min-width:100px">卖出</th><th style="text-align:right">收益%</th><th style="text-align:right;min-width:60px">盈亏(元)</th></tr></thead>';
+  html += '<tbody>';
+  
+  let lastCode = "";
+  rows.forEach(function(r, idx) {{
+    const isNewStock = r.code !== lastCode;
+    
+    // Per-stock summary row
+    if (isNewStock && lastCode !== "") {{
+      const sm = stockMap[lastCode];
+      const sr = sm.totalRet;
+      const spnl = sm.totalPnl;
+      const wr = sm.count > 0 ? Math.round(sm.wins / sm.count * 100) : 0;
+      html += '<tr style="background:#111827;color:var(--text-dim);font-size:10px"><td colspan="7" style="padding:4px 8px">';
+      html += '&#x21b3; ' + sm.name + ' 合计: ' + sm.count + '笔 | 胜率' + wr + '% | ' + (sr >= 0 ? '+' : '') + sr.toFixed(2) + '% | ' + (spnl >= 0 ? '+' : '') + spnl + '元';
+      html += '</td></tr>';
+    }}
+    lastCode = r.code;
+    
+    const retColor = r.retNum >= 0 ? 'var(--green)' : 'var(--red)';
+    const bgColor = r.fc ? 'var(--surface)' : 'transparent';
+    const timeStr = r.bt + (r.isZheng ? '买' : '') + ' → ' + r.st + (r.isZheng ? '卖' : '');
+    
+    html += '<tr style="background:' + bgColor + ';border-bottom:1px solid var(--border)">';
+    html += '<td style="padding:6px"><span style="color:var(--blue)">' + r.name + '</span></td>';
+    html += '<td style="color:var(--text-dim)">' + r.round + '</td>';
+    html += '<td>' + r.type + r.fc + '</td>';
+    html += '<td style="font-family:monospace;font-size:11px">' + r.bt + ' @' + r.bp + '</td>';
+    html += '<td style="font-family:monospace;font-size:11px">' + r.st + ' @' + r.sp + '</td>';
+    html += '<td style="text-align:right;color:' + retColor + ';font-weight:bold">' + r.retSign + r.ret + '%</td>';
+    html += '<td style="text-align:right;color:' + retColor + '">' + r.pnlSign + r.pnl + '</td>';
+    html += '</tr>';
+  }});
+  
+  // Last stock summary
+  if (lastCode !== "" && stockMap[lastCode]) {{
+    const sm = stockMap[lastCode];
+    const sr = sm.totalRet;
+    const spnl = sm.totalPnl;
+    const wr = sm.count > 0 ? Math.round(sm.wins / sm.count * 100) : 0;
+    html += '<tr style="background:#111827;color:var(--text-dim);font-size:10px"><td colspan="7" style="padding:4px 8px">';
+    html += '&#x21b3; ' + sm.name + ' 合计: ' + sm.count + '笔 | 胜率' + wr + '% | ' + (sr >= 0 ? '+' : '') + sr.toFixed(2) + '% | ' + (spnl >= 0 ? '+' : '') + spnl + '元';
+    html += '</td></tr>';
+  }}
+  
+  // Grand total row
+  const grandRet = rows.reduce(function(s,r) {{ return s + r.retNum; }}, 0);
+  const grandPnl = rows.reduce(function(s,r) {{ return s + r.pnl; }}, 0);
+  const grandWins = rows.filter(function(r) {{ return r.retNum > 0; }}).length;
+  const grandWR = Math.round(grandWins / rows.length * 100);
+  html += '<tr style="background:var(--blue);color:#000;font-weight:bold"><td colspan="7" style="padding:8px">';
+  html += '总计: ' + rows.length + '笔 | 胜率' + grandWR + '% | ' + (grandRet >= 0 ? '+' : '') + grandRet.toFixed(2) + '% | ' + (grandPnl >= 0 ? '+' : '') + grandPnl + '元';
+  html += '</td></tr>';
+  
+  html += '</tbody></table></div>';
+  grid.innerHTML = html;
+}}
+
 function renderStats(data) {{
   const el = document.getElementById("statsCards");
   const sig = data.signals;
@@ -513,8 +621,13 @@ async function refreshAll() {{
     }}
     if (data.heartbeat || data.snapshot || data.signals) {{
       renderStrategyBar(data);
-      renderStatusBar(data);
-      renderStocks(data);
+      if (selectedDate !== "today") {{
+        document.getElementById("statusBar").innerHTML = "";
+        renderHistoryTable(data);
+      }} else {{
+        renderStatusBar(data);
+        renderStocks(data);
+      }}
       renderStats(data);
       updateRefreshInfo(true);
     }} else {{
