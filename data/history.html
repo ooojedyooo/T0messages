@@ -42,7 +42,7 @@ tr:hover { background:var(--surface); }
 .sub-table .stock-section td { background:#111827; color:var(--text-dim); font-size:10px; border-bottom:2px solid var(--border); }
 .footer { text-align:center; color:#484f58; font-size:11px; margin-top:30px; padding-top:12px; border-top:1px solid var(--border); }
 .loading { text-align:center; color:var(--text-dim); padding:40px; }
-.filter-bar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:16px; padding:12px 16px; background:var(--surface); border:1px solid var(--border); border-radius:10px; }
+.filter-bar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:20px; padding:14px 18px; background:#1c2333; border:1px solid #3a3f4b; border-radius:10px; position:sticky; top:0; z-index:10; }
 .filter-bar .f-label { font-size:12px; color:var(--text-dim); white-space:nowrap; }
 .filter-bar select, .filter-bar input { background:var(--bg); border:1px solid var(--border); color:var(--text); padding:5px 10px; border-radius:5px; font-size:12px; }
 .filter-bar input[type="date"] { color:var(--text-bright); }
@@ -57,6 +57,7 @@ tr:hover { background:var(--surface); }
 </style>
 </head>
 <body>
+<!-- v3 filter-enabled -->
 <div class="header">
   <h1>&#x1f4ca; T+0 历史分析</h1>
   <div class="nav">
@@ -439,7 +440,22 @@ async function init() {
   var summary = await fetchJSON(BASE + "history-summary.json");
   allRecords = summary || [];
   
-  // Enrich records with stock list
+  if (allRecords.length) {
+    var last = allRecords[allRecords.length-1];
+    var first = allRecords[0];
+    document.getElementById("dateFrom").value = first.date;
+    document.getElementById("dateTo").value = last.date;
+  }
+  
+  // Initial render with summary data only (fast)
+  applyFilters();
+  renderStockRanking();
+  
+  // Async: enrich records with per-stock detail for filtering
+  loadStockDetails();
+}
+
+async function loadStockDetails() {
   for (var i = 0; i < allRecords.length; i++) {
     var r = allRecords[i];
     var detail = await fetchJSON(BASE + r.date + ".json");
@@ -448,7 +464,6 @@ async function init() {
         var s = detail.stocks[c];
         return s.completedRounds && s.completedRounds.length > 0;
       });
-      // Also count wins for summary
       var wins = 0, all = 0, totalPnl = 0;
       for (var c in detail.stocks) {
         var st = detail.stocks[c];
@@ -462,17 +477,9 @@ async function init() {
       r.totalPnl = totalPnl;
     }
   }
-  
-  // Populate dates
-  if (allRecords.length) {
-    var last = allRecords[allRecords.length-1];
-    var first = allRecords[0];
-    document.getElementById("dateFrom").value = first.date;
-    document.getElementById("dateTo").value = last.date;
-  }
-  
+  // Re-render with enriched data
+  updateStockFilter(allRecords);
   applyFilters();
-  renderStockRanking();
 }
 
 init();
