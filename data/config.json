@@ -52,7 +52,9 @@
   "signals": {
     "threshold": 0.25,
     "cooldown_minutes": 20,
-    "min_price_move_pct": 1.5
+    "min_price_move_pct": 1.5,
+    "market_trend_guard": true,
+    "market_index": "sz399006"
   },
 
   "risk": {

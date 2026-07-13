@@ -133,6 +133,9 @@ MAX_CONCURRENT_POSITIONS = 2  # 最多同时持有未配对T仓的股票数
 HARD_STOP_LOSS = -1.5         # 硬止损：入场价-1.5%
 TIME_STOP_MINUTES = 30        # 时间止损：开仓30分钟未盈利即平仓
 CONSECUTIVE_LOSS_FUSE = 3     # 连续亏损3笔后当日停止开新仓
+MARKET_TREND_GUARD = True     # 大盘趋势过滤：跌市不低吸，涨市不高抛
+MARKET_INDEX = "sz399006"     # 趋势参考指数：创业板指
+MARKET_TREND_CACHE = {"time": None, "trend": "FLAT", "price": 0, "vwap": 0}  # 每轮检查缓存一次
 
 # —— 策略配置文件 ——
 STRATEGY_CONFIG_FILE = os.path.join(SIGNALS_DIR, "strategy-config.json")
@@ -182,6 +185,7 @@ def apply_config(cfg):
     global MAX_POSITION_RATIO, MAX_CONCURRENT_POSITIONS, HARD_STOP_LOSS, TIME_STOP_MINUTES, CONSECUTIVE_LOSS_FUSE
     global MAIN_FLOW_NARROW_THRESHOLD
     global ORB_START, ORB_END
+    global MARKET_TREND_GUARD, MARKET_INDEX
     
     if not cfg:
         return  # 空配置，用代码默认值
@@ -254,6 +258,12 @@ def apply_config(cfg):
         SIGNAL_COOLDOWN_MINUTES = int(signals["cooldown_minutes"])
     if "min_price_move_pct" in signals:
         SIGNAL_MIN_PRICE_MOVE = float(signals["min_price_move_pct"])
+    if "market_trend_guard" in signals:
+        global MARKET_TREND_GUARD
+        MARKET_TREND_GUARD = bool(signals["market_trend_guard"])
+    if "market_index" in signals:
+        global MARKET_INDEX
+        MARKET_INDEX = str(signals["market_index"])
     
     # —— 风控 ——
     risk = cfg.get("risk", {})
@@ -1148,7 +1158,75 @@ def fetch_trend_data(code):
     return result
 
 
-def classify_trend(ma20, ma60, price):
+def fetch_market_trend():
+    """获取大盘日内趋势 — 用指数分时VWAP判断方向
+    Returns: "UP" (强势上涨,只做正T/低吸), "DOWN" (强势下跌,只做反T/高抛), "FLAT" (震荡,双向)
+    """
+    global MARKET_TREND_CACHE
+    now_key = datetime.now().strftime("%Y%m%d-%H%M")[:-1]  # 每分钟更新
+    if MARKET_TREND_CACHE["time"] == now_key and MARKET_TREND_CACHE.get("trend") is not None:
+        return MARKET_TREND_CACHE["trend"]
+    
+    MARKET_TREND_CACHE["time"] = now_key
+    
+    if not MARKET_TREND_GUARD:
+        MARKET_TREND_CACHE["trend"] = "FLAT"
+        return "FLAT"
+    
+    try:
+        bars = run_cli(["minute", MARKET_INDEX])
+        if not bars:
+            return _market_trend_fallback()
+        
+        vwap = calc_vwap(bars)
+        if not vwap or vwap <= 0:
+            return _market_trend_fallback()
+        
+        # 最近一分钟价格
+        price = None
+        for bar in reversed(bars):
+            try:
+                price = float(bar.get("price", 0))
+                if price > 0:
+                    break
+            except: pass
+        
+        if not price:
+            return _market_trend_fallback()
+        
+        # VWAP偏离判断趋势
+        deviation = (price - vwap) / vwap * 100
+        MARKET_TREND_CACHE.update({"vwap": round(vwap, 2), "price": round(price, 2), "deviation": round(deviation, 2)})
+        
+        if deviation > 0.5:
+            return "UP"
+        elif deviation < -0.5:
+            return "DOWN"
+        else:
+            return "FLAT"
+    except Exception:
+        return _market_trend_fallback()
+
+
+def _market_trend_fallback():
+    """回退方案: 用开盘价vs现价判断"""
+    try:
+        quote = run_cli(["quote", MARKET_INDEX])
+        if quote and len(quote) > 0:
+            q = quote[0]
+            price = float(q.get("price", q.get("currentPrice", 0)))
+            open_px = float(q.get("open", 0))
+            if price > 0 and open_px > 0:
+                dev = (price - open_px) / open_px * 100
+                MARKET_TREND_CACHE.update({"price": price, "vwap": open_px, "deviation": round(dev, 2), "fallback": True})
+                if dev > 0.5: return "UP"
+                elif dev < -0.5: return "DOWN"
+    except: pass
+    MARKET_TREND_CACHE["trend"] = "FLAT"
+    return "FLAT"
+
+
+
     """根据均线排列判断趋势
     
     Returns:
@@ -2485,6 +2563,12 @@ def run_check(force=False):
     # 获取当前交易阶段
     phase, min_conditions = get_trading_phase()
     log(f"  当前阶段: {phase} (最低条件数: {min_conditions})")
+    # 大盘趋势判断
+    mkt = fetch_market_trend()
+    dev = MARKET_TREND_CACHE.get("deviation")
+    dev_str = f"({dev:+.2f}%)" if dev is not None else ""
+    mkt_emoji = {"UP": "🟢", "DOWN": "🔴", "FLAT": "🟡"}
+    log(f"  大盘趋势: {mkt_emoji.get(mkt,'')} {mkt} {dev_str} {'| 跌市禁低吸' if mkt=='DOWN' else '| 涨市禁高抛' if mkt=='UP' else '| 双向'}")
 
     output_lines = [f"\n🎯 T+0交易信号 | {now_cst()} | 阶段:{phase} | 策略{len(ALL_STRATEGIES)}条池"]
     has_signal = False
@@ -2651,6 +2735,18 @@ def run_check(force=False):
                     check_sides = ["high"]  # 空头只做反T
             else:
                 check_sides = ["low", "high"]  # 震荡双向
+            
+            # ═══ 大盘趋势过滤：跌市不低吸，涨市不高抛 ═══
+            if not pending and MARKET_TREND_GUARD and len(check_sides) > 0:
+                mkt_trend = fetch_market_trend()
+                if mkt_trend == "DOWN" and "low" in check_sides:
+                    check_sides.remove("low")
+                    if MARKET_TREND_CACHE.get("deviation") is not None:
+                        log(f"  趋势过滤: 大盘DOWN({MARKET_TREND_CACHE['deviation']:+.2f}%) 禁止正T低吸")
+                elif mkt_trend == "UP" and "high" in check_sides:
+                    check_sides.remove("high")
+                    if MARKET_TREND_CACHE.get("deviation") is not None:
+                        log(f"  趋势过滤: 大盘UP({MARKET_TREND_CACHE['deviation']:+.2f}%) 禁止反T高抛")
             
             for side in check_sides:
                 met_count, met_ids, details, threshold = evaluate_signals(
