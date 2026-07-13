@@ -37,9 +37,11 @@ tr:hover { background:var(--surface); }
 .day-row.expanded { background:#1c2333; }
 .sub-row { display:none; }
 .sub-row.show { display:table-row; }
-.sub-table { margin:0; font-size:12px; background:#0d1117; }
-.sub-table td, .sub-table th { font-size:12px; padding:4px 8px; }
-.sub-table .stock-section td { background:#111827; color:var(--text-dim); font-size:10px; border-bottom:2px solid var(--border); }
+.sub-table { margin:0; font-size:13px; background:#0d1117; width:100%; }
+.sub-table td, .sub-table th { font-size:13px; padding:8px 10px; border-bottom:1px solid var(--border); }
+.sub-table th { color:var(--text-dim); font-weight:600; background:#111827; }
+.sub-table .stock-section td { background:#151d2b; color:var(--text-dim); font-size:12px; padding:8px 10px; border-bottom:2px solid var(--border); border-top:1px solid #2a3040; }
+.sub-table .grand-total td { background:var(--blue); color:#000; font-weight:bold; font-size:14px; padding:10px; }
 .footer { text-align:center; color:#484f58; font-size:11px; margin-top:30px; padding-top:12px; border-top:1px solid var(--border); }
 .loading { text-align:center; color:var(--text-dim); padding:40px; }
 .filter-bar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:20px; padding:14px 18px; background:#1c2333; border:1px solid #3a3f4b; border-radius:10px; position:sticky; top:0; z-index:10; }
@@ -331,12 +333,12 @@ function renderDayDetail(date, detail, container) {
     html += '<td style="color:var(--blue)">'+r.name+'</td>';
     html += '<td style="color:var(--text-dim)">'+r.round+'</td>';
     html += '<td>'+r.type+r.fc+'</td>';
-    html += '<td style="font-family:monospace;font-size:11px">'+(r.isZheng?r.bt+'买':'')+' @'+r.bp+'</td>';
-    html += '<td style="font-family:monospace;font-size:11px">'+(r.isZheng?r.st+'卖':'')+' @'+r.sp+'</td>';
-    html += '<td style="text-align:right;color:'+r.retColor+';font-weight:bold">'+r.retSign+r.ret.toFixed(2)+'%</td>';
-    html += '<td style="text-align:right;color:'+r.retColor+'">'+r.pnlSign+r.pnl+'</td>';
-    html += '<td style="text-align:right;color:var(--text-dim)">'+r.sh+'</td>';
-    html += '<td style="text-align:right;color:var(--text-dim)">'+r.amt+'</td></tr>';
+    html += '<td style="font-family:monospace;font-size:13px;color:var(--text-bright)"><b>'+(r.isZheng?r.bt:'')+'</b> @'+r.bp+'</td>';
+    html += '<td style="font-family:monospace;font-size:13px;color:var(--text-bright)"><b>'+(r.isZheng?r.st:'')+'</b> @'+r.sp+'</td>';
+    html += '<td style="text-align:right;color:'+r.retColor+';font-weight:bold;font-size:14px">'+r.retSign+r.ret.toFixed(2)+'%</td>';
+    html += '<td style="text-align:right;color:'+r.retColor+';font-size:13px">'+r.pnlSign+r.pnl+'</td>';
+    html += '<td style="text-align:right;color:var(--text-dim);font-size:13px">'+r.sh+'</td>';
+    html += '<td style="text-align:right;color:var(--text-dim);font-size:13px">'+r.amt+'</td></tr>';
   });
   
   // Last stock total
@@ -348,7 +350,7 @@ function renderDayDetail(date, detail, container) {
   }
   
   // Grand total
-  html += '<tr style="background:var(--blue);color:#000;font-weight:bold"><td colspan="9" style="padding:8px">';
+  html += '<tr class="grand-total"><td colspan="9">';
   html += '当日总计: ' + rows.length + '笔 | ' + (totalRet>=0?'+':'') + totalRet.toFixed(2) + '% | ' + (totalPnl>=0?'+':'') + totalPnl + '元';
   html += '</td></tr></tbody></table></div>';
   
