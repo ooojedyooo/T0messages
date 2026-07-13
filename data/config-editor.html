@@ -299,6 +299,33 @@ function renderStrategies(strat) {
     G_volume_dry:'地量', G_double_bottom:'二次探底',
     H_fund_inflow:'主力净流入(低吸)', H_fund_outflow:'主力净流出(高抛)'
   };
+  // Detailed descriptions for hover tooltips
+  var tooltips = {
+    A_vwap_low: '价格接近日内VWAP（成交量加权均价）附近，偏离<0.5%，视为支撑位。触发低吸信号。适用场景：横盘或小幅回调时入场。',
+    A_vwap_high: '价格接近日内VWAP附近，偏离<0.5%，视为压力位。触发高抛信号。适用场景：横盘或小幅反弹时减仓。',
+    A_vwap_deviation: '价格偏离日内VWAP超过2%，存在均值回归动力。偏离向下→低吸；偏离向上→高抛。适用场景：超跌反弹或冲高回落。',
+    B_vol_shrink_fall: '价格下跌但成交量萎缩（量比<0.8），说明抛压减弱，可能止跌。触发低吸信号。适用场景：缩量阴跌后的反弹。',
+    B_vol_surge_rise: '价格上涨且成交量放大（量比>1.0），资金进场做多。触发低吸信号。适用场景：放量突破或趋势延续。',
+    B_vol_surge_stall: '价格上涨但成交量急剧放大（量比>1.5）而涨幅有限，量价背离，可能主力出货。触发高抛信号。适用场景：高位滞涨。',
+    B_vol_shrink_drop: '价格下跌且成交量萎缩（量比<0.8），跌势趋缓。触发高抛信号（反T：先卖后买）。适用场景：弱势缩量下跌的反抽。',
+    C_trend_long: 'MA20>MA60且差价>1.5%，个股处于中期多头排列。此时只做正T（低吸），顺势而为。适用场景：上升趋势中的回调买入。',
+    C_trend_short: 'MA20<MA60且差价>1.5%，个股处于中期空头排列。此时只做反T（高抛），顺势而为。适用场景：下跌趋势中的反弹卖出。',
+    C_trend_range: 'MA20与MA60缠绕（差值<1.5%），无明显趋势。此时双向均可操作。适用场景：震荡市中的高抛低吸。',
+    D_divergence_low: '价格接近日内最低点（距低<0.8%）且跌幅<2%，未破位。可能形成日内底。触发低吸信号。适用场景：探底回升。',
+    D_divergence_high: '价格接近日内最高点（距高<0.5%）且涨幅<1.5%，冲高动能不足。可能形成日内顶。触发高抛信号。适用场景：冲高回落。',
+    D_amplitude: '日内振幅>2%，波动足够大，有T+0操作空间。适用场景：高波动日。注意：大波动也意味着高风险。',
+    D_rsi_low: '6日RSI<30，短线超卖。技术上有反弹需求。触发低吸信号。注意：趋势性下跌中RSI可能持续低位，需结合趋势判断。',
+    D_rsi_high: '6日RSI>70，短线超买。技术上有回调需求。触发高抛信号。注意：强势上涨中RSI可能持续高位，需结合趋势判断。',
+    E_orb_low: '价格跌破开盘区间(ORB)下沿（开盘价×0.99），可能形成日内支撑位。触发低吸信号。适用场景：开盘急跌后的反弹。',
+    E_orb_high: '价格突破开盘区间(ORB)上沿（开盘价×1.01），可能形成日内压力位。触发高抛信号。适用场景：开盘急涨后的回调。',
+    E_ma_support: '价格在MA60均线附近（±3%），中长期均线提供支撑。触发低吸信号。适用场景：均线回踩确认。',
+    F_time_ok: '当前时间不在开盘后15分钟内(09:30-09:45)和午盘收盘前(11:15-11:30)，避开了噪音最大的时段。常规过滤条件。',
+    F_fat_tail: '过滤掉涨跌幅超过±5%的极端行情日，避免在暴涨暴跌中做T+0。肥尾事件中技术指标失效概率大。',
+    G_volume_dry: '成交量极度萎缩（量比<0.5）且价格下跌，地量见地价。触发低吸信号。适用场景：极度缩量后的反弹。',
+    G_double_bottom: '价格接近前低（距前低<1%）且不低于前低，形成二次探底不破的形态。触发低吸信号。适用场景：W底确认。',
+    H_fund_inflow: '主力资金净流入（当日大单买入>卖出），资金面偏多。触发低吸信号。注意：需剔除尾盘突击拉升的虚假流入。',
+    H_fund_outflow: '主力资金净流出（当日大单卖出>买入），资金面偏空。触发高抛信号。注意：需剔除开盘集合竞价的异常流出。'
+  };
   var cats = {};
   var catNames = {A:'A-锚点(VWAP)', B:'B-量价关系', C:'C-趋势环境', D:'D-动量/背离', E:'E-关键价位', F:'F-过滤/风控', G:'G-形态', H:'H-资金流向'};
   Object.keys(strat.enabled || {}).forEach(function(id) {
@@ -311,7 +338,8 @@ function renderStrategies(strat) {
     return '<div style="margin-bottom:8px"><div style="font-size:11px;color:var(--text-dim);margin-bottom:3px">' + (catNames[cat]||cat) + '</div>' +
       items.map(function(s) {
         var cls = s.enabled ? 'on' : 'off';
-        return '<div class="strat-chip" onclick="toggleStrategy(\'' + s.id + '\',' + !s.enabled + ')" style="cursor:pointer" title="点击切换"><span class="dot ' + cls + '"></span><span class="name">' + s.label + '</span>' + (s.enabled?'':'<span style="font-size:10px;color:var(--red)">已禁用</span>') + '</div>';
+        var tip = (tooltips[s.id] || '无详细说明').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        return '<div class="strat-chip" onclick="toggleStrategy(\'' + s.id + '\',' + !s.enabled + ')" style="cursor:pointer" title="' + tip + '"><span class="dot ' + cls + '"></span><span class="name">' + s.label + '</span>' + (s.enabled?'':'<span style="font-size:10px;color:var(--red)">已禁用</span>') + '</div>';
       }).join('') + '</div>';
   }).join('');
 }
