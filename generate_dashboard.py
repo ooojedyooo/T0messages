@@ -497,16 +497,24 @@ function updateRefreshInfo(success) {{
 async function refreshAll() {{
   try {{
     const data = await fetchAll();
+    // 历史模式：构建虚拟snapshot让renderStocks可以渲染
+    if (selectedDate !== "today" && data.signals && data.signals.stocks) {{
+      const fakeSnapshot = {{ stocks: {{}} }};
+      const sigStocks = data.signals.stocks;
+      for (const code of Object.keys(sigStocks)) {{
+        const ss = sigStocks[code];
+        fakeSnapshot.stocks[code] = {{
+          name: ss.name || STOCK_NAMES[code] || code,
+          price: 0, high: 0, low: 0, changePercent: 0
+        }};
+      }}
+      data.snapshot = fakeSnapshot;
+      data.heartbeat = null;
+    }}
     if (data.heartbeat || data.snapshot || data.signals) {{
       renderStrategyBar(data);
       renderStatusBar(data);
-      if (selectedDate === "today") {{
-        renderStocks(data);
-      }} else {{
-        // 历史模式：只显示信号卡
-        document.getElementById("stockGrid").innerHTML = "";
-        document.getElementById("statusBar").innerHTML = "";
-      }}
+      renderStocks(data);
       renderStats(data);
       updateRefreshInfo(true);
     }} else {{
