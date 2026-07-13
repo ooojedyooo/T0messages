@@ -115,6 +115,9 @@ def generate_html():
   <h1>&#x1f4ca; T+0 盯盘仪表盘 <span style="font-size:14px;color:var(--text-dim);">v2.0 动态数据</span></h1>
   <div class="header-right">
     <a class="refresh-btn" style="background:var(--surface);border:1px solid var(--border);color:var(--text);text-decoration:none;display:inline-block;line-height:1.4" href="config-editor.html" target="_blank">&#x2699; 配置</a>
+    <select id="historyDate" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:5px 10px;border-radius:6px;font-size:12px;cursor:pointer" onchange="onHistoryChange()">
+      <option value="today">&#x1f4c5; 今日 (实时)</option>
+    </select>
     <span class="refresh-info" id="refreshInfo">加载中...</span>
     <button class="refresh-btn" onclick="refreshAll()">&#x21bb; 刷新</button>
   </div>
@@ -146,6 +149,32 @@ const STOCK_NAMES = {json.dumps(STOCK_NAMES, ensure_ascii=False)};
 const T0_DISABLED = new Set({json.dumps(list(T0_DISABLED))});
 const DATA_URL = "http://localhost:8899/";  // 微静态服务器
 const REFRESH_SEC = 30;
+let selectedDate = "today";  // 当前选中的历史日期
+
+// ═══════════════════════════════════════
+// 历史日期加载
+// ═══════════════════════════════════════
+async function loadHistoryDates() {{
+  try {{
+    const summary = await fetchJSON("history/history-summary.json");
+    if (summary && Array.isArray(summary)) {{
+      const sel = document.getElementById("historyDate");
+      // 保留"今日"选项，添加历史日期
+      summary.sort(function(a,b){{ return b.date.localeCompare(a.date); }});
+      summary.forEach(function(d) {{
+        const opt = document.createElement("option");
+        opt.value = d.date;
+        opt.textContent = d.date + " | " + d.totalPairs + "笔 " + (d.totalReturn >= 0 ? "+" : "") + d.totalReturn.toFixed(2) + "%";
+        sel.appendChild(opt);
+      }});
+    }}
+  }} catch(e) {{}}
+}}
+
+function onHistoryChange() {{
+  selectedDate = document.getElementById("historyDate").value;
+  refreshAll();
+}}
 
 // ═══════════════════════════════════════
 // 数据获取
@@ -159,6 +188,11 @@ async function fetchJSON(filename) {{
 }}
 
 async function fetchAll() {{
+  if (selectedDate !== "today") {{
+    // 加载历史数据：只取信号数据（快照和心跳对历史无意义）
+    const signals = await fetchJSON("history/" + selectedDate + ".json");
+    return {{ heartbeat: null, snapshot: null, signals: signals }};
+  }}
   const [heartbeat, snapshot, signals] = await Promise.all([
     fetchJSON("t0-heartbeat.json"),
     fetchJSON("t0-snapshot.json"),
@@ -466,7 +500,13 @@ async function refreshAll() {{
     if (data.heartbeat || data.snapshot || data.signals) {{
       renderStrategyBar(data);
       renderStatusBar(data);
-      renderStocks(data);
+      if (selectedDate === "today") {{
+        renderStocks(data);
+      }} else {{
+        // 历史模式：只显示信号卡
+        document.getElementById("stockGrid").innerHTML = "";
+        document.getElementById("statusBar").innerHTML = "";
+      }}
       renderStats(data);
       updateRefreshInfo(true);
     }} else {{
@@ -477,6 +517,7 @@ async function refreshAll() {{
   }}
 }}
 
+loadHistoryDates();
 refreshAll();
 setInterval(refreshAll, REFRESH_SEC * 1000);
 </script>
