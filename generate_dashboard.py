@@ -114,6 +114,7 @@ def generate_html():
 <div class="header">
   <h1>&#x1f4ca; T+0 盯盘仪表盘 <span style="font-size:14px;color:var(--text-dim);">v2.0 动态数据</span></h1>
   <div class="header-right">
+    <a class="refresh-btn" style="background:var(--surface);border:1px solid var(--border);color:var(--text);text-decoration:none;display:inline-block;line-height:1.4" href="config-editor.html" target="_blank">&#x2699; 配置</a>
     <span class="refresh-info" id="refreshInfo">加载中...</span>
     <button class="refresh-btn" onclick="refreshAll()">&#x21bb; 刷新</button>
   </div>
