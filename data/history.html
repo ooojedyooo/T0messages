@@ -6,34 +6,42 @@
 <title>T+0 历史分析</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  :root {
-    --bg: #0d1117; --surface: #161b22; --border: #30363d;
-    --text: #c9d1d9; --text-dim: #8b949e; --text-bright: #f0f6fc;
-    --green: #3fb950; --red: #f85149; --blue: #58a6ff; --yellow: #d29922;
-  }
-  body { font-family: -apple-system, 'Microsoft YaHei', 'PingFang SC', sans-serif; background: var(--bg); color: var(--text); padding: 16px; max-width: 1200px; margin: 0 auto; }
-  .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
-  .header h1 { font-size: 22px; color: var(--blue); }
-  .nav { display: flex; gap: 10px; }
-  .nav a { color: var(--text-dim); text-decoration: none; font-size: 14px; padding: 6px 12px; border-radius: 6px; }
-  .nav a:hover, .nav a.active { color: var(--blue); background: var(--surface); }
-  .summary-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 20px; }
-  .summary-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; text-align: center; }
-  .summary-card .label { font-size: 12px; color: var(--text-dim); margin-bottom: 6px; }
-  .summary-card .value { font-size: 26px; font-weight: bold; }
-  .chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
-  @media (max-width: 768px) { .chart-row { grid-template-columns: 1fr; } }
-  .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
-  .chart-card h3 { color: var(--blue); font-size: 14px; margin-bottom: 12px; }
-  .chart-card canvas { width: 100% !important; max-height: 280px; }
-  table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
-  th { text-align: left; padding: 8px; border-bottom: 1px solid var(--border); color: var(--text-dim); font-weight: normal; }
-  td { padding: 8px; border-bottom: 1px solid var(--border); }
-  tr:hover { background: var(--surface); }
-  .pos { color: var(--green); } .neg { color: var(--red); }
-  .footer { text-align: center; color: #484f58; font-size: 11px; margin-top: 30px; padding-top: 12px; border-top: 1px solid var(--border); }
-  .loading { text-align: center; color: var(--text-dim); padding: 40px; }
+* { margin:0; padding:0; box-sizing:border-box; }
+:root {
+  --bg:#0d1117; --surface:#161b22; --border:#30363d;
+  --text:#c9d1d9; --text-dim:#8b949e; --text-bright:#f0f6fc;
+  --green:#3fb950; --red:#f85149; --blue:#58a6ff; --yellow:#d29922;
+}
+body { font-family:-apple-system,'Microsoft YaHei','PingFang SC',sans-serif; background:var(--bg); color:var(--text); padding:16px; max-width:1200px; margin:0 auto; }
+.header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:12px; }
+.header h1 { font-size:22px; color:var(--blue); }
+.nav { display:flex; gap:10px; }
+.nav a { color:var(--text-dim); text-decoration:none; font-size:14px; padding:6px 12px; border-radius:6px; }
+.nav a:hover, .nav a.active { color:var(--blue); background:var(--surface); }
+.summary-cards { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); gap:10px; margin-bottom:20px; }
+.summary-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px; text-align:center; }
+.summary-card .label { font-size:12px; color:var(--text-dim); margin-bottom:6px; }
+.summary-card .value { font-size:24px; font-weight:bold; }
+.chart-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px; }
+@media (max-width:768px) { .chart-row { grid-template-columns:1fr; } }
+.chart-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px; }
+.chart-card h3 { color:var(--blue); font-size:14px; margin-bottom:12px; }
+.chart-card canvas { width:100% !important; max-height:280px; }
+table { width:100%; border-collapse:collapse; margin-top:10px; font-size:13px; }
+th { text-align:left; padding:8px; border-bottom:2px solid var(--border); color:var(--text-dim); font-weight:600; white-space:nowrap; }
+td { padding:6px 8px; border-bottom:1px solid var(--border); }
+tr:hover { background:var(--surface); }
+.pos { color:var(--green); } .neg { color:var(--red); }
+.day-row { cursor:pointer; }
+.day-row:hover { background:#1c2333 !important; }
+.day-row.expanded { background:#1c2333; }
+.sub-row { display:none; }
+.sub-row.show { display:table-row; }
+.sub-table { margin:0; font-size:12px; background:#0d1117; }
+.sub-table td, .sub-table th { font-size:12px; padding:4px 8px; }
+.sub-table .stock-section td { background:#111827; color:var(--text-dim); font-size:10px; border-bottom:2px solid var(--border); }
+.footer { text-align:center; color:#484f58; font-size:11px; margin-top:30px; padding-top:12px; border-top:1px solid var(--border); }
+.loading { text-align:center; color:var(--text-dim); padding:40px; }
 </style>
 </head>
 <body>
@@ -42,6 +50,7 @@
   <div class="nav">
     <a href="http://localhost:8899/dashboard.html">实时仪表盘</a>
     <a href="#" class="active">历史分析</a>
+    <a href="config-editor.html">配置</a>
   </div>
 </div>
 
@@ -58,9 +67,12 @@
 </div>
 
 <div class="chart-card" style="margin-bottom:20px">
-  <h3>&#x1f4cb; 每日明细</h3>
+  <h3>&#x1f4cb; 每日明细 (点击日期展开)</h3>
   <div style="overflow-x:auto">
-    <table id="detailTable"><thead><tr><th>日期</th><th>配对</th><th>总收益</th><th>胜率</th><th>强制平仓</th><th>正T/反T</th></tr></thead><tbody id="detailBody"></tbody></table>
+    <table>
+      <thead><tr><th style="width:90px">日期</th><th>配对</th><th>总收益</th><th>胜率</th><th>盈亏(元)</th><th>强平</th></tr></thead>
+      <tbody id="detailBody"></tbody>
+    </table>
   </div>
 </div>
 
@@ -68,180 +80,261 @@
 
 <script>
 const BASE = "http://localhost:8899/history/";
+const STDATE = "STOCK_NAMES"; // will be replaced from JS global
 
 async function fetchJSON(url) {
   try { const r = await fetch(url + "?t=" + Date.now()); return r.ok ? await r.json() : null; }
   catch(e) { return null; }
 }
 
+var stockNames = {};
+
 function renderSummary(records) {
   if (!records.length) {
     document.getElementById("summaryCards").innerHTML = '<div class="loading">暂无历史数据</div>';
     return;
   }
-  const totalDays = records.length;
-  const totalReturn = records.reduce((s,r) => s + (r.totalReturn||0), 0);
-  const avgReturn = totalReturn / totalDays;
-  const avgWinRate = records.reduce((s,r) => s + (r.winRate||0), 0) / totalDays;
-  const totalPairs = records.reduce((s,r) => s + (r.totalPairs||0), 0);
-  const totalForced = records.reduce((s,r) => s + (r.forcedClose||0), 0);
-  const bestDay = records.reduce((b,r) => (r.totalReturn||0) > (b?.totalReturn||-999) ? r : b, null);
-
-  document.getElementById("summaryCards").innerHTML = `
-    <div class="summary-card"><div class="label">交易天数</div><div class="value" style="color:var(--blue)">${totalDays}</div></div>
-    <div class="summary-card"><div class="label">累计收益</div><div class="value ${totalReturn>=0?'pos':'neg'}">${totalReturn>=0?'+':''}${totalReturn.toFixed(2)}%</div></div>
-    <div class="summary-card"><div class="label">日均收益</div><div class="value ${avgReturn>=0?'pos':'neg'}">${avgReturn>=0?'+':''}${avgReturn.toFixed(2)}%</div></div>
-    <div class="summary-card"><div class="label">平均胜率</div><div class="value" style="color:var(--blue)">${avgWinRate.toFixed(1)}%</div></div>
-    <div class="summary-card"><div class="label">总配对数 / 强平</div><div class="value" style="color:var(--blue)">${totalPairs} / ${totalForced}</div></div>
-    <div class="summary-card"><div class="label">最佳单日</div><div class="value pos">${bestDay?.date?.slice(5) || '--'} +${bestDay?.totalReturn?.toFixed(1)||0}%</div></div>
-  `;
+  var totalPairs = 0, totalReturn = 0, totalPnl = 0, totalDays = records.length, totalForced = 0;
+  var totalWins = 0, totalTrades = 0;
+  records.forEach(function(r) {
+    totalPairs += r.totalPairs || 0;
+    totalReturn += r.totalReturn || 0;
+    totalPnl += r.totalPnl || 0;
+    totalForced += r.forcedClose || 0;
+    if (r._wins) totalWins += r._wins;
+    if (r._trades) totalTrades += r._trades;
+  });
+  var avgReturn = totalPairs > 0 ? (totalReturn/totalPairs).toFixed(2) : '--';
+  var winRate = totalTrades > 0 ? (totalWins/totalTrades*100).toFixed(1) : '--';
+  
+  document.getElementById("summaryCards").innerHTML = [
+    {label:'交易天数', value:totalDays, color:'var(--blue)'},
+    {label:'总配对', value:totalPairs+'轮', color:'var(--blue)'},
+    {label:'总收益%', value:(totalReturn>=0?'+':'')+totalReturn.toFixed(2)+'%', color:totalReturn>=0?'var(--green)':'var(--red)'},
+    {label:'总盈亏(元)', value:(totalPnl>=0?'+':'')+Math.round(totalPnl)+'元', color:totalPnl>=0?'var(--green)':'var(--red)'},
+    {label:'胜率', value:winRate+'%', color:'var(--blue)'},
+    {label:'均笔', value:(avgReturn>=0?'+':'')+avgReturn+'%', color:'var(--blue)'}
+  ].map(function(c){return '<div class="summary-card"><div class="label">'+c.label+'</div><div class="value" style="color:'+c.color+'">'+c.value+'</div></div>';}).join('');
 }
 
 function renderCharts(records) {
   if (!records.length) return;
-  const dates = records.map(r => r.date.slice(5));
-  const returns = records.map(r => r.totalReturn || 0);
-  const pairs = records.map(r => r.totalPairs || 0);
-  const winRates = records.map(r => r.winRate || 0);
-  const cumReturns = []; let cum = 0;
-  returns.forEach(r => { cum += r; cumReturns.push(parseFloat(cum.toFixed(2))); });
-
-  // 每日收益柱状图
-  new Chart(document.getElementById("dailyReturnChart"), {
-    type: 'bar',
-    data: {
-      labels: dates,
-      datasets: [{
-        label: '日收益 %', data: returns,
-        backgroundColor: returns.map(v => v >= 0 ? 'rgba(63,185,80,0.6)' : 'rgba(248,81,73,0.6)'),
-        borderColor: returns.map(v => v >= 0 ? '#3fb950' : '#f85149'),
-        borderWidth: 1
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { ticks: { color: '#8b949e', maxRotation: 45, font: { size: 9 } }, grid: { color: '#30363d' } },
-        y: { ticks: { color: '#8b949e' }, grid: { color: '#30363d' } }
-      }
-    }
+  var dates=[], returns=[], cumReturns=[], pairs=[], winRates=[];
+  var cum=0;
+  records.forEach(function(r){
+    dates.push(r.date.substring(5));
+    returns.push(r.totalReturn||0);
+    cum+=r.totalReturn||0;
+    cumReturns.push(Number(cum.toFixed(2)));
+    pairs.push(r.totalPairs||0);
+    winRates.push(r.winRate||0);
   });
 
-  // 累计收益
-  new Chart(document.getElementById("cumReturnChart"), {
-    type: 'line',
-    data: {
-      labels: dates,
-      datasets: [{
-        label: '累计收益 %', data: cumReturns,
-        borderColor: '#58a6ff', backgroundColor: 'rgba(88,166,255,0.1)',
-        fill: true, tension: 0.3, pointRadius: 3
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { ticks: { color: '#8b949e', maxRotation: 45, font: { size: 9 } }, grid: { color: '#30363d' } },
-        y: { ticks: { color: '#8b949e' }, grid: { color: '#30363d' } }
-      }
-    }
+  new Chart(document.getElementById("dailyReturnChart"),{
+    type:'bar',
+    data:{labels:dates,datasets:[{label:'日收益%',data:returns,backgroundColor:function(c){var v=c.raw;return v>=0?'rgba(63,185,80,0.5)':'rgba(248,81,73,0.5)';}}]},
+    options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#8b949e',maxRotation:45,font:{size:9}},grid:{color:'#30363d'}},y:{ticks:{color:'#8b949e'},grid:{color:'#30363d'}}}}
   });
 
-  // 配对轮次 + 胜率
-  new Chart(document.getElementById("pairsChart"), {
-    type: 'bar',
-    data: {
-      labels: dates,
-      datasets: [
-        { label: '配对轮次', data: pairs, backgroundColor: 'rgba(88,166,255,0.4)', yAxisID: 'y' },
-        { label: '胜率 %', data: winRates, type: 'line', borderColor: '#3fb950', yAxisID: 'y1', tension: 0.3, pointRadius: 2 }
-      ]
-    },
-    options: {
-      responsive: true,
-      scales: {
-        x: { ticks: { color: '#8b949e', maxRotation: 45, font: { size: 9 } }, grid: { color: '#30363d' } },
-        y: { position: 'left', ticks: { color: '#8b949e' }, grid: { color: '#30363d' }, title: { display: true, text: '轮次', color: '#8b949e' } },
-        y1: { position: 'right', min: 0, max: 100, ticks: { color: '#3fb950' }, grid: { display: false }, title: { display: true, text: '胜率%', color: '#3fb950' } }
-      }
-    }
+  new Chart(document.getElementById("cumReturnChart"),{
+    type:'line',
+    data:{labels:dates,datasets:[{label:'累计%',data:cumReturns,borderColor:'#58a6ff',backgroundColor:'rgba(88,166,255,0.1)',fill:true,tension:0.3,pointRadius:3}]},
+    options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#8b949e',maxRotation:45,font:{size:9}},grid:{color:'#30363d'}},y:{ticks:{color:'#8b949e'},grid:{color:'#30363d'}}}}
+  });
+
+  new Chart(document.getElementById("pairsChart"),{
+    type:'bar',
+    data:{labels:dates,datasets:[{label:'配对',data:pairs,backgroundColor:'rgba(88,166,255,0.4)',yAxisID:'y'},{label:'胜率%',data:winRates,type:'line',borderColor:'#3fb950',yAxisID:'y1',tension:0.3,pointRadius:2}]},
+    options:{responsive:true,scales:{x:{ticks:{color:'#8b949e',maxRotation:45,font:{size:9}},grid:{color:'#30363d'}},y:{position:'left',ticks:{color:'#8b949e'},grid:{color:'#30363d'},title:{display:true,text:'轮次',color:'#8b949e'}},y1:{position:'right',min:0,max:100,ticks:{color:'#3fb950'},grid:{display:false},title:{display:true,text:'胜率%',color:'#3fb950'}}}}
   });
 }
 
 async function renderStockRanking() {
-  // 汇总所有历史数据中的个股表现
-  const summary = await fetchJSON(BASE + "history-summary.json");
+  var summary = await fetchJSON(BASE + "history-summary.json");
   if (!summary) return;
-
-  const stockStats = {};
-  for (const day of summary) {
-    const detail = await fetchJSON(BASE + day.date + ".json");
+  var stockStats = {};
+  for (var i = 0; i < summary.length; i++) {
+    var day = summary[i];
+    var detail = await fetchJSON(BASE + day.date + ".json");
     if (!detail || !detail.stocks) continue;
-    for (const [code, state] of Object.entries(detail.stocks)) {
+    var codes = Object.keys(detail.stocks);
+    for (var j = 0; j < codes.length; j++) {
+      var code = codes[j], state = detail.stocks[code];
       if (!state.completedRounds || !state.completedRounds.length) continue;
-      if (!stockStats[code]) stockStats[code] = { name: state.name || code, pairs: 0, return: 0, wins: 0 };
-      state.completedRounds.forEach(r => {
+      if (!stockStats[code]) stockStats[code] = {name:state.name||code, pairs:0, ret:0, wins:0, pnl:0};
+      state.completedRounds.forEach(function(r){
         stockStats[code].pairs++;
-        stockStats[code].return += r.netReturn || 0;
-        if ((r.netReturn || 0) > 0) stockStats[code].wins++;
+        stockStats[code].ret += r.netReturn||0;
+        stockStats[code].pnl += r.pnlAmount||0;
+        if ((r.netReturn||0)>0) stockStats[code].wins++;
       });
     }
   }
-
-  const sorted = Object.entries(stockStats).sort((a,b) => b[1].return - a[1].return).slice(0, 15);
-  new Chart(document.getElementById("stockChart"), {
-    type: 'bar',
-    data: {
-      labels: sorted.map(([code, s]) => s.name),
-      datasets: [{
-        label: '累计收益 %', data: sorted.map(([c, s]) => parseFloat(s.return.toFixed(2))),
-        backgroundColor: sorted.map(([c,s]) => s.return >= 0 ? 'rgba(63,185,80,0.5)' : 'rgba(248,81,73,0.5)'),
-        borderColor: sorted.map(([c,s]) => s.return >= 0 ? '#3fb950' : '#f85149'),
-        borderWidth: 1
-      }]
-    },
-    options: {
-      indexAxis: 'y',
-      responsive: true,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { ticks: { color: '#8b949e' }, grid: { color: '#30363d' } },
-        y: { ticks: { color: '#c9d1d9', font: { size: 11 } }, grid: { color: '#30363d' } }
-      }
-    }
+  var sorted = Object.entries(stockStats).sort(function(a,b){return b[1].ret-a[1].ret;}).slice(0,15);
+  new Chart(document.getElementById("stockChart"),{
+    type:'bar',indexAxis:'y',
+    data:{labels:sorted.map(function(x){return x[1].name;}),datasets:[{label:'累计收益%',data:sorted.map(function(x){return x[1].ret.toFixed(2);}),backgroundColor:function(c){return c.raw>=0?'rgba(63,185,80,0.5)':'rgba(248,81,73,0.5)';}}]},
+    options:{responsive:true,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#8b949e'},grid:{color:'#30363d'}},y:{ticks:{color:'#8b949e',font:{size:11}},grid:{display:false}}}}
   });
 }
 
+var expandedDays = {};
+
 function renderTable(records) {
-  const tbody = document.getElementById("detailBody");
-  tbody.innerHTML = records.map(r => `
-    <tr>
-      <td><a href="#" onclick="loadDayDetail('${r.date}');return false" style="color:var(--blue)">${r.date}</a></td>
-      <td>${r.totalPairs}</td>
-      <td class="${(r.totalReturn||0) >= 0 ? 'pos' : 'neg'}">${(r.totalReturn||0) >= 0 ? '+' : ''}${(r.totalReturn||0).toFixed(2)}%</td>
-      <td>${r.winRate}%</td>
-      <td>${r.forcedClose || 0}</td>
-      <td style="font-size:11px;color:var(--text-dim)">--</td>
-    </tr>
-  `).reverse().join('');
+  var tbody = document.getElementById("detailBody");
+  if (!records.length) { tbody.innerHTML = '<tr><td colspan="6" class="loading">暂无数据</td></tr>'; return; }
+  
+  tbody.innerHTML = records.slice().reverse().map(function(r,i){
+    var ret = r.totalReturn||0;
+    var pnl = r.totalPnl||0;
+    var fc = r.forcedClose||0;
+    return '<tr class="day-row" id="day-'+r.date+'" onclick="toggleDay(\''+r.date+'\')" style="cursor:pointer">'+
+      '<td style="color:var(--blue)">'+r.date+' &#x25b6;</td>'+
+      '<td>'+r.totalPairs+'</td>'+
+      '<td class="'+(ret>=0?'pos':'neg')+'">'+(ret>=0?'+':'')+ret.toFixed(2)+'%</td>'+
+      '<td>'+(r.winRate||0)+'%</td>'+
+      '<td class="'+(pnl>=0?'pos':'neg')+'">'+(pnl>=0?'+':'')+Math.round(pnl)+'元</td>'+
+      '<td>'+(fc>0?'&#x26a1; '+fc:'0')+'</td></tr>'+
+      '<tr class="sub-row" id="sub-'+r.date+'"><td colspan="6" style="padding:0"><div id="sub-content-'+r.date+'"></div></td></tr>';
+  }).join('');
 }
 
-async function loadDayDetail(date) {
-  const detail = await fetchJSON(BASE + date + ".json");
-  if (!detail) { alert("无法加载 " + date + " 的详细数据"); return; }
-  const pairs = detail.completedPairs || [];
-  const info = pairs.map(p => {
-    const isPos = p.type === "正T";
-    return `${p.type}轮${p.round}: ${isPos ? p.buyTime+'买@'+p.buyPrice+'→'+p.sellTime+'卖@'+p.sellPrice : p.sellTime+'卖@'+p.sellPrice+'→'+p.buyTime+'买@'+p.buyPrice} | ${p.netReturn>=0?'+':''}${p.netReturn}%`;
-  }).join('\n');
-  alert(`${date} 完成${pairs.length}轮配对:\n\n${info || '无配对记录'}`);
+var dayCache = {};
+
+async function toggleDay(date) {
+  var subRow = document.getElementById("sub-"+date);
+  var dayRow = document.getElementById("day-"+date);
+  var container = document.getElementById("sub-content-"+date);
+  
+  if (expandedDays[date]) {
+    subRow.classList.remove("show");
+    dayRow.classList.remove("expanded");
+    dayRow.cells[0].innerHTML = date + " &#x25b6;";
+    expandedDays[date] = false;
+    return;
+  }
+  
+  // Load data if not cached
+  if (!dayCache[date]) {
+    container.innerHTML = '<div class="loading">加载中...</div>';
+    subRow.classList.add("show");
+    dayRow.classList.add("expanded");
+    dayRow.cells[0].innerHTML = date + " &#x25bc;";
+    
+    var detail = await fetchJSON(BASE + date + ".json");
+    if (!detail || !detail.stocks) {
+      container.innerHTML = '<div style="color:var(--text-dim);padding:8px">无数据</div>';
+      expandedDays[date] = true;
+      return;
+    }
+    dayCache[date] = detail;
+  }
+  
+  var detail = dayCache[date];
+  renderDayDetail(date, detail, container);
+  subRow.classList.add("show");
+  dayRow.classList.add("expanded");
+  dayRow.cells[0].innerHTML = date + " &#x25bc;";
+  expandedDays[date] = true;
+}
+
+function renderDayDetail(date, detail, container) {
+  var rows = [];
+  var totalRet = 0, totalPnl = 0;
+  var codes = Object.keys(detail.stocks);
+  
+  for (var i = 0; i < codes.length; i++) {
+    var code = codes[i], state = detail.stocks[code];
+    if (!state || !state.completedRounds || !state.completedRounds.length) continue;
+    var name = state.name || code;
+    var stockRet = 0, stockPnl = 0, stockWins = 0;
+    
+    state.completedRounds.forEach(function(r){
+      var isZheng = r.type === "正T";
+      var ret = r.netReturn||0;
+      var pnl = Math.round(r.pnlAmount||0);
+      var sh = r.shares||0;
+      var amt = Math.round(r.amount||0);
+      var fc = r.forceclose ? " &#x26a1;" : "";
+      var retColor = ret>=0 ? "var(--green)" : "var(--red)";
+      var retSign = ret>=0 ? "+" : "";
+      var pnlSign = pnl>=0 ? "+" : "";
+      
+      rows.push({name:name, code:code, isZheng:isZheng, round:r.round,
+        bt:r.buyTime||"", bp:r.buyPrice||0, st:r.sellTime||"", sp:r.sellPrice||0,
+        ret:ret, pnl:pnl, sh:sh, amt:amt, fc:fc,
+        retColor:retColor, retSign:retSign, pnlSign:pnlSign});
+      
+      stockRet += ret;
+      stockPnl += pnl;
+      if (ret > 0) stockWins++;
+      totalRet += ret;
+      totalPnl += pnl;
+    });
+  }
+  
+  if (rows.length === 0) { container.innerHTML = '<div style="color:var(--text-dim);padding:8px">当日无已完成配对</div>'; return; }
+  
+  // Sort by time
+  rows.sort(function(a,b){ return a.bt.localeCompare(b.bt) || a.round - b.round; });
+  
+  // Per-stock grouping
+  var lastCode = "";
+  var html = '<div style="overflow-x:auto;padding:4px 0"><table class="sub-table" style="width:100%">';
+  html += '<thead><tr style="background:#111827"><th>股票</th><th>轮</th><th>类型</th><th style="min-width:110px">买入时间价</th><th style="min-width:110px">卖出时间价</th><th style="text-align:right;min-width:50px">收益%</th><th style="text-align:right;min-width:60px">盈亏(元)</th><th style="text-align:right">股数</th><th style="text-align:right">金额</th></tr></thead><tbody>';
+  
+  rows.forEach(function(r){
+    if (r.code !== lastCode && lastCode !== "") {
+      var stockTotal = rows.filter(function(x){return x.code===lastCode;});
+      var sr = stockTotal.reduce(function(s,x){return s+x.ret;},0);
+      var sp = stockTotal.reduce(function(s,x){return s+x.pnl;},0);
+      html += '<tr class="stock-section"><td colspan="9">&#x21b3; ' + (stockTotal[0]?stockTotal[0].name:'') + ' 小计: ' + stockTotal.length + '笔 | ' + (sr>=0?'+':'') + sr.toFixed(2) + '% | ' + (sp>=0?'+':'') + sp + '元</td></tr>';
+    }
+    lastCode = r.code;
+    
+    html += '<tr style="border-bottom:1px solid var(--border)">';
+    html += '<td style="color:var(--blue)">'+r.name+'</td>';
+    html += '<td style="color:var(--text-dim)">'+r.round+'</td>';
+    html += '<td>'+r.type+r.fc+'</td>';
+    html += '<td style="font-family:monospace;font-size:11px">'+(r.isZheng?r.bt+'买':'')+' @'+r.bp+'</td>';
+    html += '<td style="font-family:monospace;font-size:11px">'+(r.isZheng?r.st+'卖':'')+' @'+r.sp+'</td>';
+    html += '<td style="text-align:right;color:'+r.retColor+';font-weight:bold">'+r.retSign+r.ret.toFixed(2)+'%</td>';
+    html += '<td style="text-align:right;color:'+r.retColor+'">'+r.pnlSign+r.pnl+'</td>';
+    html += '<td style="text-align:right;color:var(--text-dim)">'+r.sh+'</td>';
+    html += '<td style="text-align:right;color:var(--text-dim)">'+r.amt+'</td></tr>';
+  });
+  
+  // Last stock total
+  if (lastCode) {
+    var stockTotal = rows.filter(function(x){return x.code===lastCode;});
+    var sr = stockTotal.reduce(function(s,x){return s+x.ret;},0);
+    var sp = stockTotal.reduce(function(s,x){return s+x.pnl;},0);
+    html += '<tr class="stock-section"><td colspan="9">&#x21b3; ' + (stockTotal[0]?stockTotal[0].name:'') + ' 小计: ' + stockTotal.length + '笔 | ' + (sr>=0?'+':'') + sr.toFixed(2) + '% | ' + (sp>=0?'+':'') + sp + '元</td></tr>';
+  }
+  
+  // Grand total
+  html += '<tr style="background:var(--blue);color:#000;font-weight:bold"><td colspan="9" style="padding:8px">';
+  html += '当日总计: ' + rows.length + '笔 | ' + (totalRet>=0?'+':'') + totalRet.toFixed(2) + '% | ' + (totalPnl>=0?'+':'') + totalPnl + '元';
+  html += '</td></tr></tbody></table></div>';
+  
+  container.innerHTML = html;
 }
 
 async function init() {
-  const summary = await fetchJSON(BASE + "history-summary.json");
-  const records = summary || [];
+  var summary = await fetchJSON(BASE + "history-summary.json");
+  var records = summary || [];
+  
+  // Try loading stock names from a signal file
+  var latest = records.length > 0 ? records[records.length-1] : null;
+  if (latest) {
+    var detail = await fetchJSON(BASE + latest.date + ".json");
+    if (detail && detail.stocks) {
+      for (var code in detail.stocks) {
+        if (detail.stocks[code].name) stockNames[code] = detail.stocks[code].name;
+      }
+    }
+  }
+  
   renderSummary(records);
   renderCharts(records);
   renderTable(records);
