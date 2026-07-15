@@ -719,8 +719,8 @@ def fetch_all_data():
     tech_b = run_cli(["technical", b_codes, "--group", "macd,rsi,ma"])
 
     # 资金流向
-    fund_a = run_cli(["asfund", a_codes])
-    fund_b = run_cli(["asfund", b_codes])
+    fund_a = run_cli(["fund", "flow", a_codes])
+    fund_b = run_cli(["fund", "flow", b_codes])
 
     # 合并数据 - 返回的是字典列表，按code建索引
     quotes = {}
@@ -1156,6 +1156,30 @@ def fetch_trend_data(code):
                 except (ValueError, TypeError):
                     pass
     return result
+
+
+def classify_trend(ma20, ma60, price):
+    """根据 MA20/MA60 排列 + 价格位置，分类个股日内趋势方向。
+    用于决定个股主策略方向（低吸/高抛/双向）。
+    返回: 'BULL' (多头,只低吸) / 'BEAR' (空头,只高抛) / 'RANGE' (震荡,双向)
+    """
+    # 数据不全时视为震荡，避免误判
+    if ma20 is None or ma60 is None or price is None or ma60 <= 0 or ma20 <= 0:
+        return "RANGE"
+
+    # 均线多空排列：MA20 相对 MA60 的偏离百分比
+    ma_spread = (ma20 - ma60) / ma60 * 100
+    # 价格相对 MA20 的位置（百分比）
+    price_vs_ma20 = (price - ma20) / ma20 * 100
+
+    # 多头：均线多头排列(MA20>MA60) 且 价格未大幅跌破MA20
+    if ma_spread > 0.3 and price_vs_ma20 >= -1.5:
+        return "BULL"
+    # 空头：均线空头排列(MA20<MA60) 且 价格未大幅突破MA20
+    elif ma_spread < -0.3 and price_vs_ma20 <= 1.5:
+        return "BEAR"
+    else:
+        return "RANGE"
 
 
 def fetch_market_trend():
